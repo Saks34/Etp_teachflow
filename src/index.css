@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  body {
+     margin :0;
+     min-height :100vh;
+     background-color :#fff;
+     color :#333;
+     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+      'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+      sans-serif;
+  }
+
+  #root {
+    min-height :100vh;
+  }
+}
+
+@layer components {
+  /* Button styles */
+  .btn {
+      padding :1rem 1.5rem;
+    border-radius :0.5rem;
+    font-weight :500;
+    transition :all 0.2s ease-in-out;
+    outline :none;
+    ring-offset :2;
+    focus :ring-admin-primary;
+  }
+
+  .btn-primary {
+    background-color :#007bff;
+    color :#fff;
+    &:hover {
+      background-color :#0056b3;
+    }
+  }
+
+  .btn-secondary {
+    background-color :#f5f5f5;
+    color :#333;
+    &:hover {
+      background-color :#e5e5e5;
+    }
+  }
+
+  .btn-danger {
+    background-color :#dc3545;
+    color :#fff;
+    &:hover {
+      background-color :#c82333;
+    }
+  }
+
+  /* Input styles */
+  .input {
+    width :100%;
+    padding :0.5rem 1rem;
+    border :1px solid #ccc;
+    border-radius :0.5rem;
+    transition :all 0.2s ease-in-out;
+    outline :none;
+    &:focus {
+      box-shadow :0 0 0 2px #007bff;
+    }
+  }
+
+  /* Card styles */
+  .card {
+    background-color :#fff;
+    border :1px solid #ccc;
+    border-radius :0.5rem;
+    box-shadow :0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+}
