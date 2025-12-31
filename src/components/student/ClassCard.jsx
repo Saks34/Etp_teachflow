@@ -6,7 +6,7 @@ export default function ClassCard({ classData }) {
     const { _id, subject, teacher, startTime, endTime, status, liveClassId } = classData;
 
     const handleJoinClass = () => {
-        if (liveClassId && (status === 'Live' || status === 'Scheduled')) {
+        if (liveClassId && (status === 'Live' || status === 'Scheduled' || status === 'Completed')) {
             navigate(`/student/class/${liveClassId}`);
         }
     };
@@ -14,6 +14,7 @@ export default function ClassCard({ classData }) {
     const getButtonText = () => {
         if (status === 'Cancelled') return 'Class Cancelled';
         if (status === 'Live') return 'Join Now';
+        if (status === 'Completed') return 'Watch Recording';
         return 'Join Class';
     };
 

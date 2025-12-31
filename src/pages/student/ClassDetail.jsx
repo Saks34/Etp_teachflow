@@ -8,6 +8,8 @@ import NotesList from '../../components/student/NotesList';
 import { useAuth } from '../../context/AuthContext';
 import CustomYouTubePlayer from '../../components/shared/CustomYouTubePlayer';
 
+import CommentSection from '../../components/student/CommentSection';
+
 export default function StudentClassDetail() {
     const { id } = useParams();
     const [loading, setLoading] = useState(true);
@@ -94,9 +96,11 @@ export default function StudentClassDetail() {
                         {classData.youtubeUrl || classData.streamInfo?.liveUrl || classData.streamInfo?.broadcastId ? (
                             <CustomYouTubePlayer
                                 videoId={
-                                    classData.streamInfo?.broadcastId ||
-                                    classData.streamInfo?.liveUrl?.split('v=')[1]?.split('&')[0] ||
-                                    classData.youtubeUrl?.split('v=')[1]?.split('&')[0]
+                                    (classData.status === 'Completed' && classData.recordings?.length > 0)
+                                        ? classData.recordings[0].youtubeVideoId
+                                        : (classData.streamInfo?.broadcastId ||
+                                            classData.streamInfo?.liveUrl?.split('v=')[1]?.split('&')[0] ||
+                                            classData.youtubeUrl?.split('v=')[1]?.split('&')[0])
                                 }
                                 autoplay={true}
                             />
@@ -110,11 +114,22 @@ export default function StudentClassDetail() {
                     </div>
                 </div>
 
-                {/* Chat Panel */}
+                {/* Chat Panel (Live) or Comments (VOD) */}
                 <div className="lg:col-span-1">
-                    <div className="h-[500px]">
-                        <ChatPanel liveClassId={id} />
-                    </div>
+                    {classData.status === 'Completed' ? (
+                        <div className="h-[500px] overflow-y-auto">
+                            {/* Comments are typically long lists, so let's put them below or replace chat? 
+                               Actually, standard layout is chat on right for live. 
+                               For VOD, chat usually disappears or becomes read-only replay. 
+                               Requested feature is "Comments". Let's put comments below video or here. 
+                               Putting here to maintain layout. */}
+                            <CommentSection liveClassId={id} />
+                        </div>
+                    ) : (
+                        <div className="h-[500px]">
+                            <ChatPanel liveClassId={id} />
+                        </div>
+                    )}
                 </div>
             </div>
 

@@ -141,7 +141,7 @@ export default function CustomYouTubePlayer({ videoId, autoplay = false }) {
                 {/* 
                     Scale up to 150% to aggressively crop out YouTube UI elements (Title, Share, Related Videos rail).
                 */}
-                <div className="w-[150%] h-[150%] flex-shrink-0">
+                <div className="w-full h-full flex-shrink-0">
                     <YouTube
                         videoId={videoId}
                         opts={opts}

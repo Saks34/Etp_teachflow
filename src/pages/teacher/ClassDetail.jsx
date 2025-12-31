@@ -205,7 +205,7 @@ export default function ClassDetail() {
                     </div>
                     <div className="flex items-center gap-3">
                         {/* Create Stream Button */}
-                        {!classData.streamInfo?.streamId && classData.status !== 'Completed' && (
+                        {!classData.streamInfo?.streamId && classData.status !== 'Completed' && classData.status !== 'Cancelled' && (
                             <button
                                 onClick={handleCreateStream}
                                 disabled={scheduling}

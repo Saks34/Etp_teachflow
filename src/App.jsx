@@ -15,6 +15,7 @@ import AdminStaff from './pages/admin/Staff.jsx'
 import AdminBatches from './pages/admin/Batches.jsx'
 import AdminTimetable from './pages/admin/Timetable.jsx'
 import AdminNotifications from './pages/admin/Notifications.jsx'
+import AdminAnalytics from './pages/admin/Analytics.jsx'
 
 // Teacher components
 import TeacherLayout from './components/teacher/TeacherLayout.jsx'
@@ -57,6 +58,7 @@ export default function App() {
               <Route path="batches" element={<AdminBatches />} />
               <Route path="timetable" element={<AdminTimetable />} />
               <Route path="notifications" element={<AdminNotifications />} />
+              <Route path="analytics" element={<AdminAnalytics />} />
               <Route path="live-class/:id" element={<TeacherClassDetail />} />
             </Route>
           </Route>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { Users, BookOpen, TrendingUp, Activity, Award, ChevronRight, Clock } from 'lucide-react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
@@ -6,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 
 export default function Dashboard() {
   const { isDark } = useTheme();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalTeachers: 0,
@@ -16,6 +18,7 @@ export default function Dashboard() {
   const [upcomingClasses, setUpcomingClasses] = useState([]);
   const [cancelledClasses, setCancelledClasses] = useState([]);
   const [batches, setBatches] = useState([]);
+  const [liveClasses, setLiveClasses] = useState([]);
 
   // Mock data for recent activity since we don't have an endpoint yet
 
@@ -53,6 +56,10 @@ export default function Dashboard() {
       setBatches(batchesData);
 
       const todaySlots = allSlots.filter(s => s.day === dayName);
+
+      // Filter live classes (those with status 'Live')
+      const live = todaySlots.filter(s => s.liveClass?.status === 'Live');
+      setLiveClasses(live);
 
       setStats({
         totalTeachers: teachersData.length,
@@ -98,7 +105,10 @@ export default function Dashboard() {
           <h1 className={`text-4xl font-bold ${textPrimary} mb-2`}>Dashboard</h1>
           <p className={textSecondary}>Monitor your institution's performance in real-time</p>
         </div>
-        <button className={`flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl shadow-lg shadow-purple-500/50 hover:shadow-xl hover:scale-105 transition-all font-medium`}>
+        <button
+          onClick={() => navigate('/admin/analytics')}
+          className={`flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl shadow-lg shadow-purple-500/50 hover:shadow-xl hover:scale-105 transition-all font-medium`}
+        >
           <Award size={18} />
           View Analytics
         </button>
@@ -175,21 +185,29 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Recent Activity */}
-        {/* <div className={`${cardBg} border rounded-2xl p-6 shadow-xl`}>
-          <h2 className={`text-xl font-bold ${textPrimary} mb-6`}>Recent Activity</h2>
-          <div className="space-y-4">
-            {recentActivity.map((activity, index) => (
-              <div key={index} className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-4 border ${isDark ? 'border-white/10' : 'border-purple-100'}`}>
-                <p className={`text-sm font-medium ${textPrimary} mb-1`}>{activity.action}</p>
-                <div className="flex items-center justify-between">
-                  <p className={`text-xs ${textMuted}`}>{activity.user}</p>
-                  <p className={`text-xs ${textMuted}`}>{activity.time}</p>
+        {/* Live Streams Monitoring */}
+        <div className={`${cardBg} border rounded-2xl p-6 shadow-xl`}>
+          <h2 className={`text-xl font-bold ${textPrimary} mb-6 flex items-center gap-2`}>
+            <Activity size={20} className="text-red-500" />
+            Live Streams
+          </h2>
+          {liveClasses.length > 0 ? (
+            <div className="space-y-3">
+              {liveClasses.map((cls, index) => (
+                <div key={index} className={`${isDark ? 'bg-white/5' : 'bg-white/60'} rounded-xl p-4 border ${isDark ? 'border-white/10' : 'border-purple-100'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                    <p className={`text-sm font-bold ${textPrimary}`}>{cls.subject}</p>
+                  </div>
+                  <p className={`text-xs ${textSecondary} mb-1`}>{cls.teacher?.name || 'Teacher'}</p>
+                  <p className={`text-xs ${textMuted}`}>{getBatchName(cls.batch)}</p>
                 </div>
-              </div>
-            ))}
-          </div>
-        </div> */}
+              ))}
+            </div>
+          ) : (
+            <p className={`${textMuted} text-center py-8 text-sm`}>No live streams right now</p>
+          )}
+        </div>
       </div>
 
       {/* Cancelled Classes */}
