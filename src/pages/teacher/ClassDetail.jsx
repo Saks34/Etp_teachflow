@@ -4,7 +4,7 @@ import api from '../../services/api';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import StreamInfo from '../../components/teacher/StreamInfo';
 import StatusBadge from '../../components/teacher/StatusBadge';
-import ChatModal from '../../components/ChatModal';
+import ChatPanel from '../../components/teacher/ChatPanel';
 import ModerationPanel from '../../components/ModerationPanel';
 import { useAuth } from '../../context/AuthContext';
 
@@ -16,7 +16,6 @@ export default function ClassDetail() {
     const [streamKey, setStreamKey] = useState('');
     const [ingestionUrl, setIngestionUrl] = useState('');
     const [notes, setNotes] = useState([]);
-    const [chatOpen, setChatOpen] = useState(false);
     const [noteForm, setNoteForm] = useState({ title: '', fileUrl: '', fileType: 'pdf' });
     const [showNoteForm, setShowNoteForm] = useState(false);
     const [scheduling, setScheduling] = useState(false);
@@ -331,15 +330,13 @@ export default function ClassDetail() {
 
                 {/* Right Column: Chat & Moderation */}
                 <div className="space-y-6">
-                    <div className="card p-6">
-                        <h3 className="text-lg font-semibold text-admin-text mb-4">Live Chat</h3>
-                        <button
-                            onClick={() => setChatOpen(true)}
-                            className="btn btn-primary w-full"
-                        >
-                            Open Chat Window
-                        </button>
-                    </div>
+                    {/* Integrated Chat Panel */}
+                    <ChatPanel
+                        liveClassId={classData._id}
+                        batchId={classData.batchId}
+                        token={token}
+                        user={user}
+                    />
 
                     <div className="card p-6">
                         <h3 className="text-lg font-semibold text-admin-text mb-4">Moderation Controls</h3>
@@ -351,16 +348,6 @@ export default function ClassDetail() {
                     </div>
                 </div>
             </div>
-
-            {/* Chat Modal */}
-            <ChatModal
-                open={chatOpen}
-                onClose={() => setChatOpen(false)}
-                liveClassId={classData._id}
-                batchId={classData.batchId}
-                token={token}
-                user={user}
-            />
         </div>
     );
 }

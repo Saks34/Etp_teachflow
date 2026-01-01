@@ -31,10 +31,18 @@ export default function StreamInfo({ liveClassId, ytStatus, streamKey, ingestion
                 {/* YouTube Player */}
                 {videoId && (
                     <div>
-                        <label className="block text-sm font-medium text-admin-text-muted mb-2">
-                            Live Stream Preview
-                        </label>
-                        <div className="aspect-video w-full bg-black rounded overflow-hidden">
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="block text-sm font-medium text-admin-text-muted">
+                                Live Stream Preview
+                            </label>
+                            {ytStatus === 'live' && (
+                                <div className="flex items-center gap-2 px-3 py-1 bg-red-500 text-white rounded-full text-xs font-bold animate-pulse">
+                                    <span className="w-2 h-2 bg-white rounded-full"></span>
+                                    <span>LIVE NOW</span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="aspect-video w-full bg-black rounded overflow-hidden relative">
                             <iframe
                                 width="100%"
                                 height="100%"

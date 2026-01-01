@@ -3,7 +3,10 @@ import StatusBadge from '../../components/teacher/StatusBadge';
 
 export default function ClassCard({ classData }) {
     const navigate = useNavigate();
-    const { _id, subject, teacher, startTime, endTime, status, liveClassId } = classData;
+    const { _id, subject, teacher, startTime, endTime, liveClassId } = classData;
+
+    // Determine actual status from liveClass or classData itself
+    const status = classData.status || classData.liveClass?.status || 'Scheduled';
 
     const handleJoinClass = () => {
         if (liveClassId && (status === 'Live' || status === 'Scheduled' || status === 'Completed')) {

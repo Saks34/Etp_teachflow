@@ -3,7 +3,10 @@ import StatusBadge from './StatusBadge';
 
 export default function ClassCard({ classData }) {
     const navigate = useNavigate();
-    const { _id, subject, batch, startTime, endTime, status } = classData;
+    const { _id, subject, batch, startTime, endTime } = classData;
+
+    // Determine actual status from liveClass or classData itself
+    const status = classData.status || classData.liveClass?.status || 'Scheduled';
 
     const handleEnterClass = () => {
         // Navigate using the timetable ID, not liveClassId

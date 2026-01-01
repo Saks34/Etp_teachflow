@@ -4,6 +4,8 @@ import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import ClassCard from '../../components/student/ClassCard';
 import EmptyState from '../../components/shared/EmptyState';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import usePageTitle from '../../hooks/usePageTitle';
 
 function todayISODate() {
   const d = new Date();
@@ -14,10 +16,15 @@ function todayISODate() {
 }
 
 export default function StudentDashboard() {
+  usePageTitle('Dashboard', 'Student');
+  const { isDark } = useTheme();
   const [loading, setLoading] = useState(true);
   const [todayClasses, setTodayClasses] = useState([]);
   const [error, setError] = useState(null);
   const { user } = useAuth();
+
+  const textPrimary = isDark ? 'text-white' : 'text-gray-900';
+  const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
 
   useEffect(() => {
     loadTodayClasses();
@@ -61,21 +68,21 @@ export default function StudentDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-admin-text">Dashboard</h1>
-        <p className="text-admin-text-muted mt-1">
+        <h1 className={`text-2xl font-bold ${textPrimary}`}>Dashboard</h1>
+        <p className={`${textSecondary} mt-1`}>
           View your classes and join live sessions
         </p>
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+        <div className={`p-4 ${isDark ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-red-50 border-red-200 text-red-700'} border rounded-lg`}>
           {error}
         </div>
       )}
 
       {/* Today's Classes */}
       <section>
-        <h2 className="text-xl font-semibold text-admin-text mb-4">
+        <h2 className={`text-xl font-semibold ${textPrimary} mb-4`}>
           Today's Classes
         </h2>
         {todayClasses.length === 0 ? (

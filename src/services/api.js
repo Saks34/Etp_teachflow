@@ -26,16 +26,20 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Token refresh queue management
 let isRefreshing = false;
-let queue = [];
+let refreshSubscribers = [];
 
 function subscribeTokenRefresh(cb) {
-  queue.push(cb);
+  refreshSubscribers.push(cb);
 }
-function onRefreshed(newToken) {
-  queue.forEach((cb) => cb(newToken));
-  queue = [];
+
+function onRefreshed(token) {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
 }
+
+let hasShownSessionWarning = false;
 
 api.interceptors.response.use(
   (res) => res,
@@ -59,12 +63,25 @@ api.interceptors.response.use(
         setAccessToken(data.accessToken);
         onRefreshed(data.accessToken);
         original.headers.Authorization = `Bearer ${data.accessToken}`;
+        hasShownSessionWarning = false; // Reset warning flag on successful refresh
         return api(original);
       } catch (e) {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
+        // Session expired - show warning before redirect
+        if (!hasShownSessionWarning) {
+          hasShownSessionWarning = true;
+          const shouldRedirect = confirm(
+            'Your session has expired. You will be redirected to the login page.\n\nClick OK to continue.'
+          );
+          if (shouldRedirect || true) { // Always redirect even if cancelled
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('user');
+            // Give user time to see the message
+            setTimeout(() => {
+              window.location.href = '/login?session=expired';
+            }, 500);
+          }
+        }
         return Promise.reject(error);
       } finally {
         isRefreshing = false;

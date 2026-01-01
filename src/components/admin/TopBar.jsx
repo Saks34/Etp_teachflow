@@ -19,6 +19,7 @@ export default function TopBar({ sidebarOpen, setSidebarOpen }) {
                 <button
                     onClick={() => setSidebarOpen(!sidebarOpen)}
                     className={`p-2.5 ${isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/60 hover:bg-white/80'} rounded-xl transition-all hover:scale-110 ${textPrimary}`}
+                    aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
                 >
                     {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
                 </button>
@@ -29,7 +30,10 @@ export default function TopBar({ sidebarOpen, setSidebarOpen }) {
             </div>
 
             <div className="flex items-center gap-4">
-                <button className={`p-2.5 ${isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/60 hover:bg-white/80'} rounded-xl transition-all hover:scale-110 relative ${textPrimary}`}>
+                <button
+                    className={`p-2.5 ${isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/60 hover:bg-white/80'} rounded-xl transition-all hover:scale-110 relative ${textPrimary}`}
+                    aria-label="Notifications (3 unread)"
+                >
                     <Bell size={20} />
                     <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
                 </button>

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, BookOpen, Calendar, Bell, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Users, GraduationCap, BookOpen, Calendar, Bell, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function Sidebar({ sidebarOpen }) {
@@ -13,10 +13,11 @@ export default function Sidebar({ sidebarOpen }) {
 
     const menuItems = [
         { id: 'dashboard', path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-        { id: 'staff', path: '/admin/staff', icon: Users, label: 'Staff Management' },
+        { id: 'teachers', path: '/admin/teachers', icon: Users, label: 'Teachers' },
+        { id: 'students', path: '/admin/students', icon: GraduationCap, label: 'Students' },
         { id: 'batches', path: '/admin/batches', icon: BookOpen, label: 'Batches' },
         { id: 'timetable', path: '/admin/timetable', icon: Calendar, label: 'Timetable' },
-        { id: 'notifications', path: '/admin/notifications', icon: Bell, label: 'Notifications', badge: 3 },
+        { id: 'notifications', path: '/admin/notifications', icon: Bell, label: 'Notifications' },
     ];
 
     return (
@@ -40,22 +41,15 @@ export default function Sidebar({ sidebarOpen }) {
                         <NavLink
                             key={item.id}
                             to={item.path}
-                            className={({ isActive }) => `w-full flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl transition-all group whitespace-nowrap ${isActive
+                            className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all group whitespace-nowrap ${isActive
                                 ? `bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-purple-500/50`
                                 : `${textPrimary} hover:bg-white/10`
                                 }`}
                         >
                             {({ isActive }) => (
                                 <>
-                                    <div className="flex items-center gap-3">
-                                        <Icon size={20} className={`shrink-0 ${isActive ? '' : 'group-hover:scale-110 transition-transform'}`} />
-                                        <span className="font-medium">{item.label}</span>
-                                    </div>
-                                    {item.badge && (
-                                        <span className="px-2 py-0.5 bg-red-500 text-white text-xs font-bold rounded-full">
-                                            {item.badge}
-                                        </span>
-                                    )}
+                                    <Icon size={20} className={`shrink-0 ${isActive ? '' : 'group-hover:scale-110 transition-transform'}`} />
+                                    <span className="font-medium">{item.label}</span>
                                 </>
                             )}
                         </NavLink>

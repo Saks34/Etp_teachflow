@@ -4,8 +4,10 @@ import api from '../../services/api';
 import { Users, BookOpen, TrendingUp, Activity, Award, ChevronRight, Clock } from 'lucide-react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { useTheme } from '../../context/ThemeContext';
+import usePageTitle from '../../hooks/usePageTitle';
 
 export default function Dashboard() {
+  usePageTitle('Dashboard', 'Admin');
   const { isDark } = useTheme();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -140,14 +142,33 @@ export default function Dashboard() {
         <div className={`lg:col-span-2 ${cardBg} border rounded-2xl p-6 shadow-xl`}>
           <div className="flex items-center justify-between mb-6">
             <h2 className={`text-2xl font-bold ${textPrimary}`}>Upcoming Classes</h2>
-            <button className={`text-sm font-medium ${isDark ? 'text-purple-400 hover:text-purple-300' : 'text-purple-600 hover:text-purple-700'} flex items-center gap-1`}>
+            <button
+              onClick={() => navigate('/admin/timetable')}
+              className={`text-sm font-medium ${isDark ? 'text-purple-400 hover:text-purple-300' : 'text-purple-600 hover:text-purple-700'} flex items-center gap-1 transition-colors`}
+            >
               View All <ChevronRight size={16} />
             </button>
           </div>
           {upcomingClasses.length > 0 ? (
             <div className="space-y-3">
-              {upcomingClasses.map((cls, index) => {
-                const statusColor = isDark ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-green-100 text-green-700 border-green-200';
+              {upcomingClasses.slice(0, 5).map((cls, index) => {
+                // Determine class status
+                const classStatus = cls.status || cls.liveClass?.status || 'Scheduled';
+
+                // Status color mapping
+                let statusColor = isDark ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-green-100 text-green-700 border-green-200';
+                let statusEmoji = '🟢';
+                let statusText = 'Scheduled';
+
+                if (classStatus === 'Live') {
+                  statusColor = isDark ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-red-100 text-red-700 border-red-200';
+                  statusEmoji = '🔴';
+                  statusText = 'LIVE';
+                } else if (classStatus === 'Completed') {
+                  statusColor = isDark ? 'bg-gray-500/20 text-gray-400 border-gray-500/30' : 'bg-gray-100 text-gray-700 border-gray-200';
+                  statusEmoji = '✅';
+                  statusText = 'Completed';
+                }
 
                 return (
                   <div key={index} className={`${isDark ? 'bg-white/5 hover:bg-white/10 border-white/10' : 'bg-white/80 hover:bg-white border-purple-100'} border rounded-xl p-4 transition-all hover:shadow-lg cursor-pointer group`}>
@@ -156,8 +177,8 @@ export default function Dashboard() {
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className={`font-bold ${textPrimary} text-lg`}>{cls.subject}</h3>
                           <span className={`text-xs px-3 py-1.5 rounded-full font-semibold border flex items-center gap-1.5 ${statusColor}`}>
-                            <span>🟢</span>
-                            Scheduled
+                            <span>{statusEmoji}</span>
+                            {statusText}
                           </span>
                         </div>
                         <p className={`text-sm ${textSecondary} mb-1`}>{cls.teacher?.name || 'Assigned Teacher'}</p>
@@ -172,7 +193,14 @@ export default function Dashboard() {
                           </span>
                         </div>
                       </div>
-                      <button className={`px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:shadow-xl`}>
+                      <button
+                        onClick={() => {
+                          if (cls.liveClassId || cls.liveClass?._id) {
+                            navigate(`/admin/live-class/${cls.liveClassId || cls.liveClass._id}`);
+                          }
+                        }}
+                        className={`px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:shadow-xl`}
+                      >
                         Details
                       </button>
                     </div>

@@ -19,6 +19,9 @@ export default function Login() {
     if (params.get('signup') === 'success') {
       setSuccess('Institution created successfully. Please log in with your admin account.');
     }
+    if (params.get('session') === 'expired') {
+      setError('Your session has expired. Please log in again.');
+    }
   }, [location.search]);
 
   const onSubmit = async (e) => {
@@ -39,11 +42,8 @@ export default function Login() {
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       login(user);
-      // Route by role
-      const role = user?.role;
-      if (role === 'Teacher') navigate('/teacher');
-      else if (role === 'Student') navigate('/student');
-      else navigate('/admin');
+      // Route to home which will redirect based on role
+      navigate('/home');
     } catch (e) {
       setError(e?.response?.data?.message || 'Login failed');
     } finally {
