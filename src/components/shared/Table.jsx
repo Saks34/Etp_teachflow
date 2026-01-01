@@ -4,11 +4,11 @@ export default function Table({ columns, data, onAction, emptyMessage = 'No data
     const { isDark } = useTheme();
 
     const cardBg = isDark
-        ? 'bg-white/5 backdrop-blur-xl border-white/10'
+        ? 'bg-gray-900 border-white/10'
         : 'bg-white border-admin-border';
 
-    const headerBg = isDark ? 'bg-white/5' : 'bg-gray-50';
-    const rowHoverBg = isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50';
+    const headerBg = isDark ? 'bg-gray-800' : 'bg-gray-50';
+    const rowHoverBg = isDark ? 'hover:bg-gray-800/50' : 'hover:bg-gray-50';
     const textPrimary = isDark ? 'text-white' : 'text-gray-900';
     const textSecondary = isDark ? 'text-gray-400' : 'text-gray-500';
     const borderColor = isDark ? 'border-white/10' : 'border-admin-border';

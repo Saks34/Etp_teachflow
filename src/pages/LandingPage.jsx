@@ -15,7 +15,7 @@ export default function LandingPage() {
     return (
         <div className="landing-page">
             {/* Header */}
-            <header className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white/90 backdrop-blur-md shadow-sm' : 'bg-white/90 backdrop-blur-md'} border-b border-gray-200`}>
+            <header className={`fixed top-0 w-full z-50 transition-all duration-300 ${isScrolled ? 'bg-white shadow-sm' : 'bg-white'} border-b border-gray-200`}>
                 <nav className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
                     <div className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                         ETP TeachFlow
@@ -23,7 +23,7 @@ export default function LandingPage() {
                     <div className="hidden md:flex gap-8 items-center">
                         <a href="#features" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors">Features</a>
                         <a href="#how-it-works" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors">How It Works</a>
-                        <a href="#pricing" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors">Pricing</a>
+                        <a href="#features" className="text-gray-700 hover:text-indigo-600 font-medium transition-colors">Pricing</a>
                         <Link to="/login" className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
                             Get Started
                         </Link>
@@ -54,7 +54,7 @@ export default function LandingPage() {
                     <div className="relative">
                         <div className="bg-white rounded-3xl shadow-2xl p-6">
                             <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl overflow-hidden" style={{ height: '400px' }}>
-                                <div className="h-10 bg-white/10 backdrop-blur-sm flex items-center px-4 gap-2">
+                                <div className="h-10 bg-white/20 flex items-center px-4 gap-2">
                                     <div className="w-3 h-3 rounded-full bg-white/30"></div>
                                     <div className="w-3 h-3 rounded-full bg-white/30"></div>
                                     <div className="w-3 h-3 rounded-full bg-white/30"></div>
@@ -244,7 +244,7 @@ export default function LandingPage() {
                         <h4 className="text-white font-semibold mb-4">Product</h4>
                         <div className="space-y-3">
                             <a href="#features" className="block hover:text-indigo-500 transition-colors">Features</a>
-                            <a href="#pricing" className="block hover:text-indigo-500 transition-colors">Pricing</a>
+                            <a href="#features" className="block hover:text-indigo-500 transition-colors">Pricing</a>
                             <a href="#how-it-works" className="block hover:text-indigo-500 transition-colors">How It Works</a>
                         </div>
                     </div>

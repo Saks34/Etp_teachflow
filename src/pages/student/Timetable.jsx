@@ -11,6 +11,12 @@ export default function StudentTimetable() {
     const [slots, setSlots] = useState([]);
     const [loading, setLoading] = useState(false);
 
+    const textPrimary = isDark ? 'text-white' : 'text-gray-900';
+    const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
+    const cardBg = isDark
+        ? 'bg-gray-900/60 backdrop-blur-xl border-white/10'
+        : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
+
     useEffect(() => {
         const loadData = async () => {
             if (!user?.batch?._id && !user?.batch) {
@@ -38,24 +44,26 @@ export default function StudentTimetable() {
 
     const handleSlotClick = (slot) => {
         // Students view details or join
-        console.log('Slot clicked:', slot);
+        // console.log('Slot clicked:', slot);
     };
 
     if (loading) return <LoadingSpinner centered />;
 
     return (
-        <div className="space-y-6">
+        <div className="max-w-7xl mx-auto space-y-6">
             <div>
-                <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Class Timetable</h1>
-                <p className={isDark ? 'text-gray-400' : 'text-gray-500'}>Your weekly class schedule</p>
+                <h1 className={`text-4xl font-bold ${textPrimary} mb-2`}>Class Timetable</h1>
+                <p className={textSecondary}>Your weekly class schedule</p>
             </div>
 
-            <TimetableCalendar
-                slots={slots}
-                onSlotClick={handleSlotClick}
-                userRole="Student"
-                loading={loading}
-            />
+            <div className={`${cardBg} border rounded-2xl p-6 shadow-xl`}>
+                <TimetableCalendar
+                    slots={slots}
+                    onSlotClick={handleSlotClick}
+                    userRole="Student"
+                    loading={loading}
+                />
+            </div>
         </div>
     );
 }

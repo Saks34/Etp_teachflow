@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
 import Table from '../../components/shared/Table';
 import Modal from '../../components/shared/Modal';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { useTheme } from '../../context/ThemeContext';
-import { Trash2, Edit } from 'lucide-react';
+import { Trash2, Edit, Plus, UserPlus } from 'lucide-react';
 
 export default function Teachers() {
     const { isDark } = useTheme();
@@ -23,8 +24,9 @@ export default function Teachers() {
     });
 
     const textPrimary = isDark ? 'text-white' : 'text-gray-900';
-    const textSecondary = isDark ? 'text-gray-400' : 'text-admin-text-muted';
+    const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
     const inputBg = isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900';
+    const cardBg = isDark ? 'bg-gray-900/60 backdrop-blur-xl border-white/10' : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
 
     useEffect(() => {
         loadTeachers();
@@ -44,12 +46,10 @@ export default function Teachers() {
         setLoading(true);
         try {
             const { data } = await api.get('/institutions/staff?role=Teacher');
-            const staff = data.staff || [];
-            // Filter for both Teachers and Moderators
-            setTeachers(staff.filter(s => s.role === 'Teacher' || s.role === 'Moderator'));
+            setTeachers(data.staff || []);
         } catch (error) {
             console.error('Failed to load teachers:', error);
-            alert(error?.response?.data?.message || 'Failed to load teachers');
+            toast.error(error?.response?.data?.message || 'Failed to load teachers');
         } finally {
             setLoading(false);
         }
@@ -59,7 +59,7 @@ export default function Teachers() {
         e.preventDefault();
         try {
             await api.post('/institutions/staff', formData);
-            alert('Teacher added successfully');
+            toast.success('Teacher added successfully');
             setShowAddModal(false);
             setFormData({
                 name: '',
@@ -71,7 +71,7 @@ export default function Teachers() {
             loadTeachers();
         } catch (error) {
             console.error('Error adding teacher:', error);
-            alert(error?.response?.data?.message || 'Failed to add teacher');
+            toast.error(error?.response?.data?.message || 'Failed to add teacher');
         }
     };
 
@@ -80,10 +80,10 @@ export default function Teachers() {
 
         try {
             await api.delete(`/institutions/staff/${userId}`);
-            alert('Teacher deleted successfully');
+            toast.success('Teacher deleted successfully');
             loadTeachers();
         } catch (error) {
-            alert(error?.response?.data?.message || 'Failed to delete teacher');
+            toast.error(error?.response?.data?.message || 'Failed to delete teacher');
         }
     };
 
@@ -106,25 +106,19 @@ export default function Teachers() {
                 name: formData.name,
                 role: formData.role,
             });
-            alert('Teacher updated successfully');
+            toast.success('Teacher updated successfully');
             setShowEditModal(false);
             setEditingTeacher(null);
             loadTeachers();
         } catch (error) {
             console.error('Error updating teacher:', error);
-            alert(error?.response?.data?.message || 'Failed to update teacher');
+            toast.error(error?.response?.data?.message || 'Failed to update teacher');
         }
     };
 
     const openAddModal = () => {
         setFormData({ ...formData, role: 'Teacher' });
         setShowAddModal(true);
-    };
-
-    const getBatchName = (batchId) => {
-        if (!batchId) return '-';
-        const batch = batches.find(b => b._id === batchId);
-        return batch ? batch.name : batchId;
     };
 
     const columns = [
@@ -134,7 +128,9 @@ export default function Teachers() {
         {
             header: 'Status',
             render: (row) => (
-                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Active</span>
+                <span className={`px-2 py-1 rounded-full text-xs border ${isDark ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-green-100 text-green-700 border-green-200'}`}>
+                    Active
+                </span>
             ),
         },
         {
@@ -146,7 +142,7 @@ export default function Teachers() {
                             e.stopPropagation();
                             handleEdit(row);
                         }}
-                        className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                         title="Edit Teacher"
                     >
                         <Edit size={18} />
@@ -156,7 +152,7 @@ export default function Teachers() {
                             e.stopPropagation();
                             handleDelete(row.id);
                         }}
-                        className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                         title="Delete Teacher"
                     >
                         <Trash2 size={18} />
@@ -170,43 +166,31 @@ export default function Teachers() {
         return <LoadingSpinner centered />;
     }
 
-    const InputField = ({ label, type = "text", required = false, value, onChange, placeholder }) => (
-        <div>
-            <label className={`block text-sm font-medium mb-1 ${textPrimary}`}>
-                {label} {required && '*'}
-            </label>
-            <input
-                type={type}
-                required={required}
-                className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-admin-primary focus:border-transparent outline-none transition-all ${inputBg}`}
-                value={value}
-                onChange={onChange}
-                placeholder={placeholder}
-            />
-        </div>
-    );
+
 
     return (
-        <div className="space-y-6">
+        <div className="max-w-7xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className={`text-2xl font-bold ${textPrimary}`}>Teacher Management</h1>
-                    <p className={`${textSecondary} mt-1`}>Manage teachers and moderators</p>
+                    <h1 className={`text-4xl font-bold ${textPrimary} mb-2`}>Teachers</h1>
+                    <p className={textSecondary}>Manage your academic staff</p>
                 </div>
                 <button
                     onClick={openAddModal}
-                    className="btn btn-primary bg-gradient-to-r from-violet-600 to-purple-600 border-none shadow-lg hover:shadow-purple-500/30"
+                    className={`flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl shadow-lg shadow-purple-500/50 hover:shadow-xl hover:scale-105 transition-all font-medium`}
                 >
-                    + Add Teacher
+                    <UserPlus size={18} />
+                    Add Teacher
                 </button>
             </div>
 
-            {/* Table */}
-            <Table
-                columns={columns}
-                data={teachers}
-                emptyMessage="No teachers found. Add your first teacher to get started."
-            />
+            <div className={`${cardBg} border rounded-2xl p-6 shadow-xl`}>
+                <Table
+                    columns={columns}
+                    data={teachers}
+                    emptyMessage="No teachers found. Add your first teacher to get started."
+                />
+            </div>
 
             {/* Add Staff Modal */}
             <Modal
@@ -235,7 +219,7 @@ export default function Teachers() {
                     <div>
                         <label className={`block text-sm font-medium mb-1 ${textPrimary}`}>Role</label>
                         <select
-                            className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-admin-primary focus:border-transparent outline-none transition-all ${inputBg}`}
+                            className={`w-full px-4 py-2 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg}`}
                             value={formData.role}
                             onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                         >
@@ -243,8 +227,6 @@ export default function Teachers() {
                             <option value="Moderator">Moderator</option>
                         </select>
                     </div>
-
-
 
                     <div className="space-y-2">
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -269,13 +251,13 @@ export default function Teachers() {
                     </div>
 
                     <div className="flex gap-3 pt-4">
-                        <button type="submit" className="btn btn-primary flex-1 bg-gradient-to-r from-violet-600 to-purple-600 border-none">
+                        <button type="submit" className="flex-1 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-medium shadow-lg hover:shadow-purple-500/30 transition-all">
                             Add {formData.role}
                         </button>
                         <button
                             type="button"
                             onClick={() => setShowAddModal(false)}
-                            className={`btn flex-1 ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'btn-secondary'}`}
+                            className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                         >
                             Cancel
                         </button>
@@ -310,7 +292,7 @@ export default function Teachers() {
                     <div>
                         <label className={`block text-sm font-medium mb-1 ${textPrimary}`}>Role</label>
                         <select
-                            className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-admin-primary focus:border-transparent outline-none transition-all ${inputBg}`}
+                            className={`w-full px-4 py-2 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg}`}
                             value={formData.role}
                             onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                         >
@@ -320,13 +302,13 @@ export default function Teachers() {
                     </div>
 
                     <div className="flex gap-3 pt-4">
-                        <button type="submit" className="btn btn-primary flex-1 bg-gradient-to-r from-violet-600 to-purple-600 border-none">
+                        <button type="submit" className="flex-1 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-medium shadow-lg hover:shadow-purple-500/30 transition-all">
                             Update Teacher
                         </button>
                         <button
                             type="button"
                             onClick={() => setShowEditModal(false)}
-                            className={`btn flex-1 ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'btn-secondary'}`}
+                            className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                         >
                             Cancel
                         </button>
@@ -336,3 +318,26 @@ export default function Teachers() {
         </div>
     );
 }
+
+const InputField = ({ label, type = "text", required = false, value, onChange, placeholder, disabled }) => {
+    const { isDark } = useTheme();
+    const textPrimary = isDark ? 'text-white' : 'text-gray-900';
+    const inputBg = isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900';
+
+    return (
+        <div>
+            <label className={`block text-sm font-medium mb-1 ${textPrimary}`}>
+                {label} {required && '*'}
+            </label>
+            <input
+                type={type}
+                required={required}
+                className={`w-full px-4 py-2 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                value={value}
+                onChange={onChange}
+                placeholder={placeholder}
+                disabled={disabled}
+            />
+        </div>
+    );
+};

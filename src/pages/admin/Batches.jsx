@@ -1,10 +1,33 @@
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
 import Table from '../../components/shared/Table';
 import Modal from '../../components/shared/Modal';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { useTheme } from '../../context/ThemeContext';
-import { Edit2, Trash2, Plus, Search } from 'lucide-react';
+import { Edit2, Trash2, Plus, Search, BookOpen } from 'lucide-react';
+
+const InputField = ({ label, type = "text", required = false, value, onChange, placeholder }) => {
+    const { isDark } = useTheme();
+    const textPrimary = isDark ? 'text-white' : 'text-gray-900';
+    const inputBg = isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900';
+
+    return (
+        <div>
+            <label className={`block text-sm font-medium mb-1 ${textPrimary}`}>
+                {label} {required && '*'}
+            </label>
+            <input
+                type={type}
+                required={required}
+                className={`w-full px-4 py-2 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg}`}
+                value={value}
+                onChange={onChange}
+                placeholder={placeholder}
+            />
+        </div>
+    );
+};
 
 export default function Batches() {
     const { isDark } = useTheme();
@@ -20,8 +43,9 @@ export default function Batches() {
     });
 
     const textPrimary = isDark ? 'text-white' : 'text-gray-900';
-    const textSecondary = isDark ? 'text-gray-400' : 'text-admin-text-muted';
+    const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
     const inputBg = isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900';
+    const cardBg = isDark ? 'bg-gray-900/60 backdrop-blur-xl border-white/10' : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
 
     useEffect(() => {
         loadBatches();
@@ -34,7 +58,7 @@ export default function Batches() {
             setBatches(data.batches || []);
         } catch (error) {
             console.error('Failed to load batches:', error);
-            alert(error?.response?.data?.message || 'Failed to load batches');
+            toast.error(error?.response?.data?.message || 'Failed to load batches');
         } finally {
             setLoading(false);
         }
@@ -44,12 +68,12 @@ export default function Batches() {
         e.preventDefault();
         try {
             await api.post('/batches', formData);
-            alert('Batch created successfully');
+            toast.success('Batch created successfully');
             setFormData({ name: '', academicYear: '', description: '' });
             setShowCreateModal(false);
             loadBatches();
         } catch (error) {
-            alert(error?.response?.data?.message || 'Failed to create batch');
+            toast.error(error?.response?.data?.message || 'Failed to create batch');
         }
     };
 
@@ -57,13 +81,13 @@ export default function Batches() {
         e.preventDefault();
         try {
             await api.patch(`/batches/${selectedBatch._id}`, formData);
-            alert('Batch updated successfully');
+            toast.success('Batch updated successfully');
             setShowEditModal(false);
             setSelectedBatch(null);
             setFormData({ name: '', academicYear: '', description: '' });
             loadBatches();
         } catch (error) {
-            alert(error?.response?.data?.message || 'Failed to update batch');
+            toast.error(error?.response?.data?.message || 'Failed to update batch');
         }
     };
 
@@ -72,10 +96,10 @@ export default function Batches() {
 
         try {
             await api.delete(`/batches/${batchId}`);
-            alert('Batch deleted successfully');
+            toast.success('Batch deleted successfully');
             loadBatches();
         } catch (error) {
-            alert(error?.response?.data?.message || 'Failed to delete batch');
+            toast.error(error?.response?.data?.message || 'Failed to delete batch');
         }
     };
 
@@ -97,7 +121,11 @@ export default function Batches() {
         },
         {
             header: 'Student Count',
-            render: (row) => row.studentCount || 0,
+            render: (row) => (
+                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${isDark ? 'bg-purple-500/20 text-purple-300' : 'bg-purple-100 text-purple-700'}`}>
+                    {row.studentCount || 0} Students
+                </span>
+            ),
         },
         {
             header: 'Created',
@@ -109,14 +137,14 @@ export default function Batches() {
                 <div className="flex gap-2">
                     <button
                         onClick={() => openEditModal(row)}
-                        className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        className="p-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                         title="Edit Batch"
                     >
                         <Edit2 size={18} />
                     </button>
                     <button
                         onClick={() => handleDeleteBatch(row._id, row.name)}
-                        className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                         title="Delete Batch"
                     >
                         <Trash2 size={18} />
@@ -130,42 +158,31 @@ export default function Batches() {
         return <LoadingSpinner centered />;
     }
 
-    const InputField = ({ label, type = "text", required = false, value, onChange, placeholder }) => (
-        <div>
-            <label className={`block text-sm font-medium mb-1 ${textPrimary}`}>
-                {label} {required && '*'}
-            </label>
-            <input
-                type={type}
-                required={required}
-                className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-admin-primary focus:border-transparent outline-none transition-all ${inputBg}`}
-                value={value}
-                onChange={onChange}
-                placeholder={placeholder}
-            />
-        </div>
-    );
+
 
     return (
-        <div className="space-y-6">
+        <div className="max-w-7xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className={`text-2xl font-bold ${textPrimary}`}>Batch Management</h1>
-                    <p className={`${textSecondary} mt-1`}>Organize students into batches</p>
+                    <h1 className={`text-4xl font-bold ${textPrimary} mb-2`}>Batches</h1>
+                    <p className={textSecondary}>Organize students into batches</p>
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
-                    className="btn btn-primary bg-gradient-to-r from-violet-600 to-purple-600 border-none shadow-lg hover:shadow-purple-500/30"
+                    className={`flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl shadow-lg shadow-purple-500/50 hover:shadow-xl hover:scale-105 transition-all font-medium`}
                 >
-                    + Create Batch
+                    <BookOpen size={18} />
+                    Create Batch
                 </button>
             </div>
 
-            <Table
-                columns={columns}
-                data={batches}
-                emptyMessage="No batches found. Create your first batch to get started."
-            />
+            <div className={`${cardBg} border rounded-2xl p-6 shadow-xl`}>
+                <Table
+                    columns={columns}
+                    data={batches}
+                    emptyMessage="No batches found. Create your first batch to get started."
+                />
+            </div>
 
             {/* Create Batch Modal */}
             <Modal
@@ -198,7 +215,7 @@ export default function Batches() {
                             Description
                         </label>
                         <textarea
-                            className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-admin-primary focus:border-transparent outline-none transition-all ${inputBg}`}
+                            className={`w-full px-4 py-2 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg}`}
                             rows="3"
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -207,7 +224,7 @@ export default function Batches() {
                     </div>
 
                     <div className="flex gap-3 pt-4">
-                        <button type="submit" className="btn btn-primary flex-1 bg-gradient-to-r from-violet-600 to-purple-600 border-none">
+                        <button type="submit" className="flex-1 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-medium shadow-lg hover:shadow-purple-500/30 transition-all">
                             Create Batch
                         </button>
                         <button
@@ -216,7 +233,7 @@ export default function Batches() {
                                 setShowCreateModal(false);
                                 setFormData({ name: '', academicYear: '', description: '' });
                             }}
-                            className={`btn flex-1 ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'btn-secondary'}`}
+                            className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                         >
                             Cancel
                         </button>
@@ -254,7 +271,7 @@ export default function Batches() {
                             Description
                         </label>
                         <textarea
-                            className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-admin-primary focus:border-transparent outline-none transition-all ${inputBg}`}
+                            className={`w-full px-4 py-2 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg}`}
                             rows="3"
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -262,7 +279,7 @@ export default function Batches() {
                     </div>
 
                     <div className="flex gap-3 pt-4">
-                        <button type="submit" className="btn btn-primary flex-1 bg-gradient-to-r from-violet-600 to-purple-600 border-none">
+                        <button type="submit" className="flex-1 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-medium shadow-lg hover:shadow-purple-500/30 transition-all">
                             Update Batch
                         </button>
                         <button
@@ -272,7 +289,7 @@ export default function Batches() {
                                 setSelectedBatch(null);
                                 setFormData({ name: '', academicYear: '', description: '' });
                             }}
-                            className={`btn flex-1 ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'btn-secondary'}`}
+                            className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                         >
                             Cancel
                         </button>

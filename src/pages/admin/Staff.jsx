@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
 import Table from '../../components/shared/Table';
 import Modal from '../../components/shared/Modal';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { useTheme } from '../../context/ThemeContext';
-import { Eye, Trash2 } from 'lucide-react';
+import { Eye, Trash2, UserPlus, Users, GraduationCap } from 'lucide-react';
 
 export default function Staff() {
     const { isDark } = useTheme();
@@ -24,10 +25,9 @@ export default function Staff() {
     });
 
     const textPrimary = isDark ? 'text-white' : 'text-gray-900';
-    const textSecondary = isDark ? 'text-gray-400' : 'text-admin-text-muted';
-    const inputBg = isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900';
-    const tabActive = 'border-violet-500 text-violet-500';
-    const tabInactive = isDark ? 'border-transparent text-gray-400 hover:text-white' : 'border-transparent text-gray-500 hover:text-gray-900';
+    const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
+    const inputBg = isDark ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-white border-gray-300 text-gray-900';
+    const cardBg = isDark ? 'bg-gray-900/60 backdrop-blur-xl border-white/10' : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
 
     useEffect(() => {
         loadStaff();
@@ -54,7 +54,7 @@ export default function Staff() {
             setStudents(staff.filter(s => s.role === 'Student'));
         } catch (error) {
             console.error('Failed to load staff:', error);
-            alert(error?.response?.data?.message || 'Failed to load staff');
+            toast.error(error?.response?.data?.message || 'Failed to load staff');
         } finally {
             setLoading(false);
         }
@@ -64,7 +64,7 @@ export default function Staff() {
         e.preventDefault();
         try {
             await api.post('/institutions/staff', formData);
-            alert('User added successfully');
+            toast.success('User added successfully');
             setShowAddModal(false);
             setFormData({
                 name: '',
@@ -77,7 +77,7 @@ export default function Staff() {
             loadStaff();
         } catch (error) {
             console.error('Error adding staff:', error);
-            alert(error?.response?.data?.message || 'Failed to add user');
+            toast.error(error?.response?.data?.message || 'Failed to add user');
         }
     };
 
@@ -86,10 +86,10 @@ export default function Staff() {
 
         try {
             await api.delete(`/institutions/staff/${userId}`);
-            alert('User deleted successfully');
+            toast.success('User deleted successfully');
             loadStaff();
         } catch (error) {
-            alert(error?.response?.data?.message || 'Failed to delete user');
+            toast.error(error?.response?.data?.message || 'Failed to delete user');
         }
     };
 
@@ -111,17 +111,17 @@ export default function Staff() {
         {
             header: 'Status',
             render: (row) => (
-                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Active</span>
+                <span className={`px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-xs font-medium border border-emerald-500/20`}>Active</span>
             ),
         },
         {
             header: 'Actions',
             render: (row) => (
                 <div className="flex gap-2">
-                    <button className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="View Details">
+                    <button className={`p-2 rounded-lg transition-colors ${isDark ? 'text-blue-400 hover:bg-blue-400/10' : 'text-blue-600 hover:bg-blue-50'}`} title="View Details">
                         <Eye size={18} />
                     </button>
-                    <button onClick={() => handleDelete(row._id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+                    <button onClick={() => handleDelete(row._id)} className={`p-2 rounded-lg transition-colors ${isDark ? 'text-red-400 hover:bg-red-400/10' : 'text-red-600 hover:bg-red-50'}`} title="Delete User">
                         <Trash2 size={18} />
                     </button>
                 </div>
@@ -140,7 +140,7 @@ export default function Staff() {
         {
             header: 'Status',
             render: (row) => (
-                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Active</span>
+                <span className={`px-3 py-1 bg-emerald-500/10 text-emerald-500 rounded-full text-xs font-medium border border-emerald-500/20`}>Active</span>
             ),
         },
         {
@@ -149,12 +149,12 @@ export default function Staff() {
                 <div className="flex gap-2">
                     <button
                         onClick={() => alert(`User Details:\nID: ${row.id}\nName: ${row.name}\nEmail: ${row.email}\nRole: ${row.role}${row.batchId ? `\nBatch: ${getBatchName(row.batchId)}` : ''}`)}
-                        className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        className={`p-2 rounded-lg transition-colors ${isDark ? 'text-blue-400 hover:bg-blue-400/10' : 'text-blue-600 hover:bg-blue-50'}`}
                         title="View Details"
                     >
                         <Eye size={18} />
                     </button>
-                    <button onClick={() => handleDelete(row._id)} className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete User">
+                    <button onClick={() => handleDelete(row._id)} className={`p-2 rounded-lg transition-colors ${isDark ? 'text-red-400 hover:bg-red-400/10' : 'text-red-600 hover:bg-red-50'}`} title="Delete User">
                         <Trash2 size={18} />
                     </button>
                 </div>
@@ -168,13 +168,13 @@ export default function Staff() {
 
     const InputField = ({ label, type = "text", required = false, value, onChange, placeholder }) => (
         <div>
-            <label className={`block text-sm font-medium mb-1 ${textPrimary}`}>
+            <label className={`block text-sm font-medium mb-1.5 ${textPrimary}`}>
                 {label} {required && '*'}
             </label>
             <input
                 type={type}
                 required={required}
-                className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-admin-primary focus:border-transparent outline-none transition-all ${inputBg}`}
+                className={`w-full px-4 py-2.5 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg}`}
                 value={value}
                 onChange={onChange}
                 placeholder={placeholder}
@@ -186,49 +186,55 @@ export default function Staff() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className={`text-2xl font-bold ${textPrimary}`}>Staff Management</h1>
+                    <h1 className={`text-3xl font-bold ${textPrimary}`}>Staff Management</h1>
                     <p className={`${textSecondary} mt-1`}>Manage teachers and students</p>
                 </div>
                 <button
                     onClick={() => openAddModal(activeTab === 'teachers' ? 'Teacher' : 'Student')}
-                    className="btn btn-primary bg-gradient-to-r from-violet-600 to-purple-600 border-none shadow-lg hover:shadow-purple-500/30"
+                    className="btn btn-primary flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl shadow-lg shadow-violet-500/20 hover:shadow-violet-500/40 transition-all active:scale-95"
                 >
-                    {activeTab === 'teachers' ? '+ Add Teacher' : '+ Add Student'}
+                    <UserPlus size={20} />
+                    <span>{activeTab === 'teachers' ? 'Add Teacher' : 'Add Student'}</span>
                 </button>
             </div>
 
-            {/* Tabs */}
-            <div className={`border-b ${isDark ? 'border-white/10' : 'border-admin-border'}`}>
-                <div className="flex gap-8">
+            {/* Content Container */}
+            <div className={`${cardBg} border rounded-2xl overflow-hidden shadow-xl min-h-[600px] flex flex-col`}>
+                {/* Tabs */}
+                <div className="flex border-b border-white/5 px-6 pt-4 gap-6">
                     <button
                         onClick={() => setActiveTab('teachers')}
-                        className={`pb-3 px-1 border-b-2 font-medium transition-colors ${activeTab === 'teachers' ? tabActive : tabInactive}`}
+                        className={`pb-4 px-2 border-b-2 font-medium transition-colors flex items-center gap-2 ${activeTab === 'teachers' ? 'border-violet-500 text-violet-500' : 'border-transparent text-gray-500 hover:text-gray-400'}`}
                     >
+                        <Users size={18} />
                         Teachers
                     </button>
                     <button
                         onClick={() => setActiveTab('students')}
-                        className={`pb-3 px-1 border-b-2 font-medium transition-colors ${activeTab === 'students' ? tabActive : tabInactive}`}
+                        className={`pb-4 px-2 border-b-2 font-medium transition-colors flex items-center gap-2 ${activeTab === 'students' ? 'border-violet-500 text-violet-500' : 'border-transparent text-gray-500 hover:text-gray-400'}`}
                     >
+                        <GraduationCap size={18} />
                         Students
                     </button>
                 </div>
-            </div>
 
-            {/* Table */}
-            {activeTab === 'teachers' ? (
-                <Table
-                    columns={teacherColumns}
-                    data={teachers}
-                    emptyMessage="No teachers found. Add your first teacher to get started."
-                />
-            ) : (
-                <Table
-                    columns={studentColumns}
-                    data={students}
-                    emptyMessage="No students found. Add your first student to get started."
-                />
-            )}
+                {/* Table Area */}
+                <div className="p-6 flex-1">
+                    {activeTab === 'teachers' ? (
+                        <Table
+                            columns={teacherColumns}
+                            data={teachers}
+                            emptyMessage="No teachers found. Add your first teacher to get started."
+                        />
+                    ) : (
+                        <Table
+                            columns={studentColumns}
+                            data={students}
+                            emptyMessage="No students found. Add your first student to get started."
+                        />
+                    )}
+                </div>
+            </div>
 
             {/* Add Staff Modal */}
             <Modal
@@ -255,9 +261,9 @@ export default function Staff() {
                     />
 
                     <div>
-                        <label className={`block text-sm font-medium mb-1 ${textPrimary}`}>Role</label>
+                        <label className={`block text-sm font-medium mb-1.5 ${textPrimary}`}>Role</label>
                         <select
-                            className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-admin-primary focus:border-transparent outline-none transition-all ${inputBg}`}
+                            className={`w-full px-4 py-2.5 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg}`}
                             value={formData.role}
                             onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                         >
@@ -268,11 +274,11 @@ export default function Staff() {
 
                     {formData.role === 'Student' && (
                         <div>
-                            <label className={`block text-sm font-medium mb-1 ${textPrimary}`}>
+                            <label className={`block text-sm font-medium mb-1.5 ${textPrimary}`}>
                                 Batch {batches.length > 0 && '(Optional)'}
                             </label>
                             <select
-                                className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-admin-primary focus:border-transparent outline-none transition-all ${inputBg}`}
+                                className={`w-full px-4 py-2.5 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg}`}
                                 value={formData.batchId}
                                 onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
                             >
@@ -291,36 +297,36 @@ export default function Staff() {
                         </div>
                     )}
 
-                    <div className="space-y-2">
-                        <label className="flex items-center gap-2 cursor-pointer">
+                    <div className="space-y-3 pt-2">
+                        <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-dashed border-gray-500/30 hover:bg-gray-500/5 transition-colors">
                             <input
                                 type="checkbox"
                                 checked={formData.sendEmail}
                                 onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
-                                className="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                                className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500"
                             />
                             <span className={`text-sm ${textPrimary}`}>Send credentials via email</span>
                         </label>
 
-                        <label className="flex items-center gap-2 cursor-pointer">
+                        <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-dashed border-gray-500/30 hover:bg-gray-500/5 transition-colors">
                             <input
                                 type="checkbox"
                                 checked={formData.downloadCSV}
                                 onChange={(e) => setFormData({ ...formData, downloadCSV: e.target.checked })}
-                                className="rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                                className="w-4 h-4 rounded text-violet-600 focus:ring-violet-500"
                             />
                             <span className={`text-sm ${textPrimary}`}>Download credentials as CSV</span>
                         </label>
                     </div>
 
-                    <div className="flex gap-3 pt-4">
-                        <button type="submit" className="btn btn-primary flex-1 bg-gradient-to-r from-violet-600 to-purple-600 border-none">
+                    <div className="flex gap-3 pt-6">
+                        <button type="submit" className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold py-3 rounded-xl shadow-lg hover:shadow-violet-500/30 transition-all active:scale-95">
                             Add {formData.role}
                         </button>
                         <button
                             type="button"
                             onClick={() => setShowAddModal(false)}
-                            className={`btn flex-1 ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'btn-secondary'}`}
+                            className={`flex-1 py-3 rounded-xl font-medium transition-all ${isDark ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}`}
                         >
                             Cancel
                         </button>

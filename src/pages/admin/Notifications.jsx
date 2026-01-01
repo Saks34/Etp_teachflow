@@ -7,10 +7,9 @@ export default function Notifications() {
     const [notifications, setNotifications] = useState([]);
 
     const textPrimary = isDark ? 'text-white' : 'text-gray-900';
-    const textSecondary = isDark ? 'text-gray-400' : 'text-admin-text-muted';
-    const cardBg = isDark ? 'bg-white/5 backdrop-blur-xl border-white/10' : 'bg-white border-admin-border';
-    const borderColor = isDark ? 'border-white/10' : 'border-admin-border';
-    const hoverBg = isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50';
+    const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
+    const cardBg = isDark ? 'bg-gray-900/60 backdrop-blur-xl border-white/10' : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
+    const itemHoverBg = isDark ? 'hover:bg-white/5' : 'hover:bg-violet-50/50';
 
     useEffect(() => {
         loadNotifications();
@@ -62,48 +61,52 @@ export default function Notifications() {
             case 'class_cancelled': return <AlertTriangle className="text-red-500" size={24} />;
             case 'teacher_joined': return <CheckCircle className="text-green-500" size={24} />;
             case 'system': return <Bell className="text-blue-500" size={24} />;
-            default: return <Bell className="text-purple-500" size={24} />;
+            default: return <Bell className="text-violet-500" size={24} />;
         }
     };
 
     return (
         <div className="space-y-6">
             <div>
-                <h1 className={`text-2xl font-bold ${textPrimary}`}>Notifications</h1>
+                <h1 className={`text-3xl font-bold ${textPrimary}`}>Notifications</h1>
                 <p className={`${textSecondary} mt-1`}>System events and updates</p>
             </div>
 
             {notifications.length === 0 ? (
-                <div className={`card p-12 text-center ${cardBg} border ${borderColor}`}>
-                    <div className="flex justify-center mb-4">
-                        <div className={`w-16 h-16 rounded-full flex items-center justify-center ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}>
-                            <Bell className={textSecondary} size={32} />
+                <div className={`p-16 text-center ${cardBg} border rounded-2xl`}>
+                    <div className="flex justify-center mb-6">
+                        <div className={`w-20 h-20 rounded-2xl flex items-center justify-center ${isDark ? 'bg-white/5' : 'bg-violet-50'}`}>
+                            <Bell className={isDark ? 'text-gray-500' : 'text-violet-300'} size={40} />
                         </div>
                     </div>
-                    <h3 className={`text-lg font-medium ${textPrimary} mb-2`}>No notifications</h3>
+                    <h3 className={`text-xl font-bold ${textPrimary} mb-2`}>No notifications</h3>
                     <p className={textSecondary}>
                         You're all caught up! New notifications will appear here.
                     </p>
                 </div>
             ) : (
-                <div className={`card divide-y ${borderColor} ${cardBg} border overflow-hidden`}>
-                    {notifications.map((notification) => (
-                        <div key={notification.id} className={`p-6 ${hoverBg} transition-colors cursor-pointer group`}>
-                            <div className="flex items-start gap-4">
-                                <div className={`mt-1 p-2 rounded-lg ${isDark ? 'bg-white/5' : 'bg-gray-50'} group-hover:scale-110 transition-transform`}>
-                                    {getIcon(notification.type)}
-                                </div>
-                                <div className="flex-1">
-                                    <h4 className={`text-base font-semibold ${textPrimary} mb-1`}>{notification.title}</h4>
-                                    <p className={`${textSecondary} text-sm mb-2`}>{notification.message}</p>
-                                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                                        <Clock size={12} />
-                                        <span>{formatTimestamp(notification.timestamp)}</span>
+                <div className={`${cardBg} border rounded-2xl overflow-hidden shadow-xl`}>
+                    <div className="divide-y divide-white/5">
+                        {notifications.map((notification) => (
+                            <div key={notification.id} className={`p-6 ${itemHoverBg} transition-all cursor-pointer group`}>
+                                <div className="flex items-start gap-4">
+                                    <div className={`mt-1 p-3 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-100'} group-hover:scale-110 transition-transform shadow-inner`}>
+                                        {getIcon(notification.type)}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <h4 className={`text-base font-bold ${textPrimary}`}>{notification.title}</h4>
+                                            <div className={`flex items-center gap-1.5 text-xs ${textSecondary} px-2 py-1 rounded-full ${isDark ? 'bg-white/5' : 'bg-gray-100'}`}>
+                                                <Clock size={12} />
+                                                <span>{formatTimestamp(notification.timestamp)}</span>
+                                            </div>
+                                        </div>
+                                        <p className={`${textSecondary} text-sm leading-relaxed`}>{notification.message}</p>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             )}
         </div>

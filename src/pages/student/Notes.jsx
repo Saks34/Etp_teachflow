@@ -3,12 +3,21 @@ import api from '../../services/api';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import NotesList from '../../components/student/NotesList';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { BookOpen } from 'lucide-react';
 
 export default function StudentNotes() {
+    const { isDark } = useTheme();
     const [loading, setLoading] = useState(true);
     const [notes, setNotes] = useState([]);
     const [error, setError] = useState(null);
     const { user } = useAuth();
+
+    const textPrimary = isDark ? 'text-white' : 'text-gray-900';
+    const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
+    const cardBg = isDark
+        ? 'bg-gray-900/60 backdrop-blur-xl border-white/10'
+        : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
 
     useEffect(() => {
         loadNotes();
@@ -43,16 +52,21 @@ export default function StudentNotes() {
     }
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-admin-text">Study Materials</h1>
-                <p className="text-admin-text-muted mt-1">
-                    Access and download your class notes and materials
-                </p>
+        <div className="max-w-7xl mx-auto space-y-6">
+            <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-xl ${isDark ? 'bg-violet-500/20 text-violet-300' : 'bg-violet-100 text-violet-600'}`}>
+                    <BookOpen size={24} />
+                </div>
+                <div>
+                    <h1 className={`text-4xl font-bold ${textPrimary} mb-1`}>Study Materials</h1>
+                    <p className={`${textSecondary} font-medium`}>
+                        Access and download your class notes and materials
+                    </p>
+                </div>
             </div>
 
             {error && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                <div className={`p-4 ${isDark ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-red-50 border-red-200 text-red-700'} border rounded-xl`}>
                     {error}
                 </div>
             )}

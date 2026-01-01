@@ -7,8 +7,8 @@ export default function TopBar({ sidebarOpen, setSidebarOpen }) {
     const { isDark } = useTheme();
 
     const cardBg = isDark
-        ? 'bg-white/5 backdrop-blur-xl border-white/10'
-        : 'bg-white/70 backdrop-blur-xl border-white/50';
+        ? 'bg-gray-900/60 backdrop-blur-xl border-white/10'
+        : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
 
     const textPrimary = isDark ? 'text-white' : 'text-gray-900';
     const textMuted = isDark ? 'text-gray-500' : 'text-gray-500';

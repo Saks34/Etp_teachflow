@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
 import Modal from '../../components/shared/Modal';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import TimetableCalendar from '../../components/shared/TimetableCalendar';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { Calendar, Plus } from 'lucide-react';
 
 function todayISODate() {
     const d = new Date();
@@ -27,7 +29,7 @@ const SelectField = ({ label, value, onChange, options, required = false, placeh
             </label>
             <select
                 required={required}
-                className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-admin-primary focus:border-transparent outline-none transition-all ${inputBg}`}
+                className={`w-full px-4 py-2 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg}`}
                 value={value}
                 onChange={onChange}
             >
@@ -53,7 +55,7 @@ const InputField = ({ label, type = "text", required = false, value, onChange, p
             <input
                 type={type}
                 required={required}
-                className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-admin-primary focus:border-transparent outline-none transition-all ${inputBg}`}
+                className={`w-full px-4 py-2 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg}`}
                 value={value}
                 onChange={onChange}
                 placeholder={placeholder}
@@ -85,8 +87,8 @@ export default function Timetable() {
     const [editingSlotId, setEditingSlotId] = useState(null);
 
     const textPrimary = isDark ? 'text-white' : 'text-gray-900';
-    const textSecondary = isDark ? 'text-gray-400' : 'text-admin-text-muted';
-    const inputBg = isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900';
+    const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
+    const cardBg = isDark ? 'bg-gray-900/60 backdrop-blur-xl border-white/10' : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
 
     useEffect(() => {
         loadData();
@@ -133,16 +135,16 @@ export default function Timetable() {
         try {
             if (editingSlotId) {
                 await api.patch(`/timetables/${editingSlotId}`, payload);
-                alert('Class updated successfully');
+                toast.success('Class updated successfully');
             } else {
                 await api.post('/timetables', payload);
-                alert('Class scheduled successfully');
+                toast.success('Class scheduled successfully');
             }
 
             closeModal();
             loadData(); // Refresh calendar
         } catch (error) {
-            alert(error?.response?.data?.message || 'Failed to save class');
+            toast.error(error?.response?.data?.message || 'Failed to save class');
         }
     };
 
@@ -150,10 +152,10 @@ export default function Timetable() {
         if (!confirm('Are you sure you want to delete this class?')) return;
         try {
             await api.delete(`/timetables/${slotId}`);
-            alert('Class deleted successfully');
+            toast.success('Class deleted successfully');
             loadData();
         } catch (error) {
-            alert(error?.response?.data?.message || 'Failed to delete class');
+            toast.error(error?.response?.data?.message || 'Failed to delete class');
         }
     };
 
@@ -184,7 +186,12 @@ export default function Timetable() {
             });
             setShowCreateModal(true);
         } else if (action === 'join') {
-            navigate(`/admin/live-class/${slot._id}`);
+            console.log('Join clicked:', { slot, id: slot?._id, type: typeof slot?._id });
+            if (slot?._id) {
+                navigate(`/admin/live-class/${String(slot._id)}`);
+            } else {
+                toast.error('Invalid class ID');
+            }
         }
     };
 
@@ -192,30 +199,31 @@ export default function Timetable() {
         return <LoadingSpinner centered />;
     }
 
-    // Components moved outside to prevent re-renders losing focus
-
     return (
-        <div className="space-y-6">
+        <div className="max-w-7xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className={`text-2xl font-bold ${textPrimary}`}>Timetable Management</h1>
-                    <p className={`${textSecondary} mt-1`}>Schedule and manage classes</p>
+                    <h1 className={`text-4xl font-bold ${textPrimary} mb-2`}>Timetable</h1>
+                    <p className={textSecondary}>Schedule and manage classes</p>
                 </div>
                 <button
                     onClick={openCreateModal}
-                    className="btn btn-primary bg-gradient-to-r from-violet-600 to-purple-600 border-none shadow-lg hover:shadow-purple-500/30"
+                    className={`flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl shadow-lg shadow-purple-500/50 hover:shadow-xl hover:scale-105 transition-all font-medium`}
                 >
-                    + Schedule Class
+                    <Calendar size={18} />
+                    Schedule Class
                 </button>
             </div>
 
-            {/* Calendar View */}
-            <TimetableCalendar
-                slots={slots}
-                onSlotClick={handleSlotClick}
-                userRole={user?.role}
-                loading={loading}
-            />
+            {/* Calendar View Container */}
+            <div className={`${cardBg} border rounded-2xl p-6 shadow-xl`}>
+                <TimetableCalendar
+                    slots={slots}
+                    onSlotClick={handleSlotClick}
+                    userRole={user?.role}
+                    loading={loading}
+                />
+            </div>
 
             <Modal
                 isOpen={showCreateModal}
@@ -255,15 +263,14 @@ export default function Timetable() {
                     {/* For Weekly Schedule, day selection is derived from this date picker for simplicity */}
                     {!editingSlotId && (
                         <div className="space-y-1">
-                            <label className={`block text-sm font-medium ${textPrimary}`}>Select Day (via Date)</label>
-                            <input
+                            <InputField
+                                label="Select Day (via Date)"
                                 type="date"
                                 required
                                 value={formData.date}
                                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-admin-primary outline-none transition-all ${inputBg}`}
                             />
-                            <p className="text-xs text-gray-500">Pick any date; the class will repeat every {new Date(formData.date).toLocaleDateString('en-US', { weekday: 'long' })}.</p>
+                            <p className="text-xs text-gray-500 ml-1">Pick any date; the class will repeat every {new Date(formData.date).toLocaleDateString('en-US', { weekday: 'long' })}.</p>
                         </div>
                     )}
 
@@ -285,13 +292,13 @@ export default function Timetable() {
                     </div>
 
                     <div className="flex gap-3 pt-4">
-                        <button type="submit" className="btn btn-primary flex-1 bg-gradient-to-r from-violet-600 to-purple-600 border-none">
+                        <button type="submit" className="flex-1 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-medium shadow-lg hover:shadow-purple-500/30 transition-all">
                             {editingSlotId ? 'Update Class' : 'Schedule Class'}
                         </button>
                         <button
                             type="button"
                             onClick={closeModal}
-                            className={`btn flex-1 ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'btn-secondary'}`}
+                            className={`flex-1 px-4 py-2 rounded-xl font-medium transition-all ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                         >
                             Cancel
                         </button>

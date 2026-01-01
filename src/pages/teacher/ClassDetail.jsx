@@ -7,10 +7,14 @@ import StatusBadge from '../../components/teacher/StatusBadge';
 import ChatPanel from '../../components/teacher/ChatPanel';
 import ModerationPanel from '../../components/ModerationPanel';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
+import { Video, FileText, Settings, Upload, Trash2, ExternalLink } from 'lucide-react';
 
 export default function ClassDetail() {
     const { id: liveClassId } = useParams();
+    console.log('ClassDetail params:', { liveClassId, type: typeof liveClassId });
     const { user } = useAuth();
+    const { isDark } = useTheme();
     const [loading, setLoading] = useState(true);
     const [classData, setClassData] = useState(null);
     const [streamKey, setStreamKey] = useState('');
@@ -22,6 +26,13 @@ export default function ClassDetail() {
     const [error, setError] = useState(null);
 
     const token = localStorage.getItem('accessToken') || '';
+
+    const textPrimary = isDark ? 'text-white' : 'text-gray-900';
+    const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
+    const cardBg = isDark
+        ? 'bg-gray-900/60 backdrop-blur-xl border-white/10'
+        : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
+    const inputBg = isDark ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900';
 
     useEffect(() => {
         loadClassData();
@@ -105,35 +116,22 @@ export default function ClassDetail() {
     };
 
     const handleCreateStream = async () => {
-        console.log('[Frontend] 🎬 Create Stream button clicked');
+        // ... existing logic ...
+        // console.log('[Frontend] 🎬 Create Stream button clicked');
 
         const realId = classData?._id;
-        console.log('[Frontend] 📋 Class data:', {
-            realId,
-            timetableId: liveClassId,
-            subject: classData?.subject,
-            batch: classData?.batch,
-            hasStreamInfo: !!classData?.streamInfo?.streamId
-        });
+        // ... logs ...
 
         if (!realId) {
-            console.error('[Frontend] ❌ Error: Class data not fully loaded');
             return alert('Error: Class data not fully loaded');
         }
 
         setScheduling(true);
         try {
-            console.log(`[Frontend] 🚀 Calling API: POST /live-classes/${realId}/schedule`);
             const response = await api.post(`/live-classes/${realId}/schedule`);
-            console.log('[Frontend] ✅ Stream created successfully:', response.data);
             alert('Stream created successfully! Use the URL and Key in OBS.');
             await loadClassData();
         } catch (error) {
-            console.error('[Frontend] ❌ Failed to create stream:', {
-                message: error?.response?.data?.message || error.message,
-                status: error?.response?.status,
-                data: error?.response?.data
-            });
             alert(error?.response?.data?.message || 'Failed to create stream');
         } finally {
             setScheduling(false);
@@ -141,29 +139,16 @@ export default function ClassDetail() {
     };
 
     const handleEndStream = async () => {
-        console.log('[Frontend] 🛑 End Stream button clicked');
-
+        // ... existing logic ...
         const realId = classData?._id;
-        console.log('[Frontend] 📋 Ending stream for LiveClass:', realId);
-
-        if (!realId) {
-            console.error('[Frontend] ❌ No LiveClass ID available');
-            return;
-        }
+        if (!realId) return;
 
         setScheduling(true);
         try {
-            console.log(`[Frontend] 🚀 Calling API: POST /live-classes/${realId}/end`);
-            const response = await api.post(`/live-classes/${realId}/end`);
-            console.log('[Frontend] ✅ Stream ended successfully:', response.data);
+            await api.post(`/live-classes/${realId}/end`);
             alert('Stream ended successfully');
             await loadClassData();
         } catch (error) {
-            console.error('[Frontend] ❌ Failed to end stream:', {
-                message: error?.response?.data?.message || error.message,
-                status: error?.response?.status,
-                data: error?.response?.data
-            });
             alert(error?.response?.data?.message || 'Failed to end stream');
         } finally {
             setScheduling(false);
@@ -178,7 +163,7 @@ export default function ClassDetail() {
         return (
             <div className="p-8 text-center">
                 <p className="text-red-500 mb-4">{error}</p>
-                <button onClick={loadClassData} className="btn btn-secondary">Retry</button>
+                <button onClick={loadClassData} className="px-4 py-2 bg-gray-200 rounded text-gray-800">Retry</button>
             </div>
         );
     }
@@ -186,19 +171,22 @@ export default function ClassDetail() {
     if (!classData) {
         return (
             <div className="p-8 text-center">
-                <p className="text-admin-text-muted">Class not found</p>
+                <p className={textSecondary}>Class not found</p>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6">
+        <div className="max-w-7xl mx-auto space-y-6">
             {/* Top Bar */}
-            <div className="card p-6">
+            <div className={`${cardBg} border rounded-2xl p-6 shadow-xl`}>
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-admin-text">{classData.subject}</h1>
-                        <p className="text-admin-text-muted mt-1">
+                        <h1 className={`text-2xl font-bold ${textPrimary} flex items-center gap-3`}>
+                            {classData.subject}
+                            <StatusBadge status={classData.status} />
+                        </h1>
+                        <p className={`${textSecondary} mt-1 font-medium`}>
                             {classData.batch} • {classData.startTime} - {classData.endTime}
                         </p>
                     </div>
@@ -208,8 +196,9 @@ export default function ClassDetail() {
                             <button
                                 onClick={handleCreateStream}
                                 disabled={scheduling}
-                                className="btn btn-primary"
+                                className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-indigo-500/30 transition-all font-medium flex items-center gap-2"
                             >
+                                <Video size={18} />
                                 {scheduling ? 'Creating...' : 'Create Stream'}
                             </button>
                         )}
@@ -219,20 +208,18 @@ export default function ClassDetail() {
                             <button
                                 onClick={handleEndStream}
                                 disabled={scheduling}
-                                className="btn btn-danger bg-red-600 hover:bg-red-700 text-white"
+                                className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-lg hover:shadow-red-500/30 transition-all font-medium"
                             >
                                 {scheduling ? 'Ending...' : 'End Stream'}
                             </button>
                         )}
-
-                        <StatusBadge status={classData.status} />
                     </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Left Column: Stream Info */}
-                <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Main Content: Stream Info & Notes (2/3 width) */}
+                <div className="lg:col-span-2 space-y-6">
                     <StreamInfo
                         liveClassId={classData._id}
                         ytStatus={classData.ytStatus}
@@ -243,26 +230,29 @@ export default function ClassDetail() {
                     />
 
                     {/* Notes Section */}
-                    <div className="card p-6">
+                    <div className={`${cardBg} border rounded-2xl p-6 shadow-xl`}>
                         <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold text-admin-text">Class Notes</h3>
+                            <h3 className={`text-lg font-bold ${textPrimary} flex items-center gap-2`}>
+                                <FileText size={20} className={isDark ? 'text-violet-400' : 'text-violet-600'} />
+                                Class Notes
+                            </h3>
                             <button
                                 onClick={() => setShowNoteForm(!showNoteForm)}
-                                className="btn btn-primary text-sm"
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium ${isDark ? 'bg-violet-500/20 text-violet-300 hover:bg-violet-500/30' : 'bg-violet-100 text-violet-700 hover:bg-violet-200'} transition-all flex items-center gap-2`}
                             >
-                                {showNoteForm ? 'Cancel' : '+ Upload Note'}
+                                {showNoteForm ? 'Cancel' : <><Upload size={14} /> Upload Note</>}
                             </button>
                         </div>
 
                         {showNoteForm && (
-                            <form onSubmit={uploadNote} className="space-y-3 mb-4 p-4 bg-gray-50 rounded border border-admin-border">
+                            <form onSubmit={uploadNote} className={`space-y-4 mb-6 p-4 rounded-xl border ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
                                 <div>
-                                    <label className="block text-sm font-medium text-admin-text mb-1">
+                                    <label className={`block text-sm font-medium ${textPrimary} mb-1`}>
                                         Title
                                     </label>
                                     <input
                                         type="text"
-                                        className="input"
+                                        className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-violet-500 outline-none transition-all ${inputBg}`}
                                         value={noteForm.title}
                                         onChange={(e) => setNoteForm({ ...noteForm, title: e.target.value })}
                                         placeholder="e.g., Chapter 5 Notes"
@@ -270,12 +260,12 @@ export default function ClassDetail() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-admin-text mb-1">
+                                    <label className={`block text-sm font-medium ${textPrimary} mb-1`}>
                                         File URL
                                     </label>
                                     <input
                                         type="url"
-                                        className="input"
+                                        className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-violet-500 outline-none transition-all ${inputBg}`}
                                         value={noteForm.fileUrl}
                                         onChange={(e) => setNoteForm({ ...noteForm, fileUrl: e.target.value })}
                                         placeholder="https://..."
@@ -283,11 +273,11 @@ export default function ClassDetail() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-admin-text mb-1">
+                                    <label className={`block text-sm font-medium ${textPrimary} mb-1`}>
                                         File Type
                                     </label>
                                     <select
-                                        className="input"
+                                        className={`w-full px-4 py-2 rounded-lg border focus:ring-2 focus:ring-violet-500 outline-none transition-all ${inputBg}`}
                                         value={noteForm.fileType}
                                         onChange={(e) => setNoteForm({ ...noteForm, fileType: e.target.value })}
                                     >
@@ -296,31 +286,50 @@ export default function ClassDetail() {
                                         <option value="doc">Document</option>
                                     </select>
                                 </div>
-                                <button type="submit" className="btn btn-primary w-full">
+                                <button type="submit" className="w-full py-2 bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-lg font-medium shadow-lg hover:shadow-indigo-500/30 transition-all">
                                     Upload
                                 </button>
                             </form>
                         )}
 
                         {notes.length === 0 ? (
-                            <p className="text-admin-text-muted text-center py-4">No notes uploaded yet</p>
+                            <div className="text-center py-8">
+                                <p className={textSecondary}>No notes uploaded yet</p>
+                            </div>
                         ) : (
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 {notes.map((note) => (
                                     <div
                                         key={note._id}
-                                        className="flex items-center justify-between p-3 border border-admin-border rounded"
+                                        className={`flex items-center justify-between p-4 border rounded-xl ${isDark ? 'border-white/10 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50'} transition-colors`}
                                     >
-                                        <div>
-                                            <p className="font-medium text-admin-text">{note.title}</p>
-                                            <p className="text-xs text-admin-text-muted">{note.fileType.toUpperCase()}</p>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-800' : 'bg-white shadow-sm'}`}>
+                                                <FileText size={18} className={textSecondary} />
+                                            </div>
+                                            <div>
+                                                <p className={`font-semibold ${textPrimary}`}>{note.title}</p>
+                                                <p className={`text-xs ${textSecondary} uppercase`}>{note.fileType}</p>
+                                            </div>
                                         </div>
-                                        <button
-                                            onClick={() => deleteNote(note._id)}
-                                            className="text-red-600 hover:text-red-800 text-sm"
-                                        >
-                                            Delete
-                                        </button>
+                                        <div className="flex items-center gap-3">
+                                            <a
+                                                href={note.fileUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={`p-2 rounded-lg ${isDark ? 'hover:bg-blue-500/20 text-blue-400' : 'hover:bg-blue-100 text-blue-600'} transition-all`}
+                                                title="View"
+                                            >
+                                                <ExternalLink size={18} />
+                                            </a>
+                                            <button
+                                                onClick={() => deleteNote(note._id)}
+                                                className={`p-2 rounded-lg ${isDark ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-red-100 text-red-600'} transition-all`}
+                                                title="Delete"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -328,18 +337,23 @@ export default function ClassDetail() {
                     </div>
                 </div>
 
-                {/* Right Column: Chat & Moderation */}
+                {/* Right Column: Chat & Moderation (1/3 width) */}
                 <div className="space-y-6">
                     {/* Integrated Chat Panel */}
-                    <ChatPanel
-                        liveClassId={classData._id}
-                        batchId={classData.batchId}
-                        token={token}
-                        user={user}
-                    />
+                    <div className="h-[600px] flex flex-col">
+                        <ChatPanel
+                            liveClassId={classData._id}
+                            batchId={classData.batchId}
+                            token={token}
+                            user={user}
+                        />
+                    </div>
 
-                    <div className="card p-6">
-                        <h3 className="text-lg font-semibold text-admin-text mb-4">Moderation Controls</h3>
+                    <div className={`${cardBg} border rounded-2xl p-6 shadow-xl`}>
+                        <h3 className={`text-lg font-bold ${textPrimary} mb-4 flex items-center gap-2`}>
+                            <Settings size={20} className={isDark ? 'text-gray-400' : 'text-gray-600'} />
+                            Moderation Controls
+                        </h3>
                         <ModerationPanel
                             liveClassId={classData._id}
                             batchId={classData.batchId}

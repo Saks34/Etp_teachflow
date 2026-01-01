@@ -11,6 +11,12 @@ export default function TeacherTimetable() {
     const [slots, setSlots] = useState([]);
     const [loading, setLoading] = useState(false);
 
+    const textPrimary = isDark ? 'text-white' : 'text-gray-900';
+    const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
+    const cardBg = isDark
+        ? 'bg-gray-900/60 backdrop-blur-xl border-white/10'
+        : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
+
     useEffect(() => {
         const loadData = async () => {
             setLoading(true);
@@ -31,24 +37,26 @@ export default function TeacherTimetable() {
     const handleSlotClick = (slot, action) => {
         // Teachers might have different actions like "Start Class" (handled inside Calendar for generic 'live' status button)
         // But for now, maybe just view details.
-        console.log('Slot clicked:', slot);
+        // console.log('Slot clicked:', slot);
     };
 
     if (loading) return <LoadingSpinner centered />;
 
     return (
-        <div className="space-y-6">
+        <div className="max-w-7xl mx-auto space-y-6">
             <div>
-                <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>My Class Schedule</h1>
-                <p className={isDark ? 'text-gray-400' : 'text-gray-500'}>View your weekly teaching schedule</p>
+                <h1 className={`text-4xl font-bold ${textPrimary} mb-2`}>My Schedule</h1>
+                <p className={textSecondary}>View your weekly teaching schedule</p>
             </div>
 
-            <TimetableCalendar
-                slots={slots}
-                onSlotClick={handleSlotClick}
-                userRole="Teacher"
-                loading={loading}
-            />
+            <div className={`${cardBg} border rounded-2xl p-6 shadow-xl`}>
+                <TimetableCalendar
+                    slots={slots}
+                    onSlotClick={handleSlotClick}
+                    userRole="Teacher"
+                    loading={loading}
+                />
+            </div>
         </div>
     );
 }

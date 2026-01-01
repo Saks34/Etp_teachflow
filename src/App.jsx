@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import './App.css'
 import Login from './pages/Login.jsx'
 import LandingPage from './pages/LandingPage.jsx'
@@ -14,6 +15,7 @@ import ChangePassword from './pages/ChangePassword.jsx'
 import AdminLayout from './components/admin/AdminLayout.jsx'
 import AdminDashboard from './pages/admin/Dashboard.jsx'
 import AdminTeachers from './pages/admin/Teachers.jsx'
+import AdminModerators from './pages/admin/Moderators.jsx'
 import AdminStudents from './pages/admin/Students.jsx'
 import AdminBatches from './pages/admin/Batches.jsx'
 import AdminTimetable from './pages/admin/Timetable.jsx'
@@ -46,6 +48,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
+        <Toaster position="top-right" />
         <Routes>
           <Route index element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
@@ -60,6 +63,7 @@ export default function App() {
                 <Route index element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="teachers" element={<AdminTeachers />} />
+                <Route path="moderators" element={<AdminModerators />} />
                 <Route path="students" element={<AdminStudents />} />
                 <Route path="batches" element={<AdminBatches />} />
                 <Route path="timetable" element={<AdminTimetable />} />

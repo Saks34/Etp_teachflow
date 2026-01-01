@@ -5,21 +5,20 @@ import Table from '../../components/shared/Table';
 import Modal from '../../components/shared/Modal';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { useTheme } from '../../context/ThemeContext';
-import { Trash2, Edit, UserPlus } from 'lucide-react';
+import { Shield, Trash2, Edit, Plus, UserPlus } from 'lucide-react';
 
-export default function Students() {
+
+export default function Moderators() {
     const { isDark } = useTheme();
-    const [students, setStudents] = useState([]);
-    const [batches, setBatches] = useState([]);
+    const [moderators, setModerators] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
-    const [editingStudent, setEditingStudent] = useState(null);
+    const [editingModerator, setEditingModerator] = useState(null);
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        role: 'Student',
-        batchId: '',
+        role: 'Moderator',
         sendEmail: true,
         downloadCSV: false,
     });
@@ -30,8 +29,7 @@ export default function Students() {
     const cardBg = isDark ? 'bg-gray-900/60 backdrop-blur-xl border-white/10' : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
 
     useEffect(() => {
-        loadStudents();
-        loadBatches();
+        loadModerators();
     }, []);
 
     const loadBatches = async () => {
@@ -43,98 +41,93 @@ export default function Students() {
         }
     };
 
-    const loadStudents = async () => {
+    const loadModerators = async () => {
         setLoading(true);
         try {
-            const { data } = await api.get('/institutions/staff?role=Student');
-            setStudents(data.staff || []);
+            const { data } = await api.get('/institutions/staff?role=Moderator');
+            setModerators(data.staff || []);
         } catch (error) {
-            console.error('Failed to load students:', error);
-            toast.error(error?.response?.data?.message || 'Failed to load students');
+            console.error('Failed to load moderators:', error);
+            toast.error(error?.response?.data?.message || 'Failed to load moderators');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleAddStudent = async (e) => {
+    const handleAddModerator = async (e) => {
         e.preventDefault();
         try {
-            await api.post('/institutions/staff', formData);
-            toast.success('Student added successfully');
+            // Force role to be Moderator
+            const payload = { ...formData, role: 'Moderator' };
+            await api.post('/institutions/staff', payload);
+            toast.success('Moderator added successfully');
             setShowAddModal(false);
             setFormData({
                 name: '',
                 email: '',
-                role: 'Student',
-                batchId: '',
+                role: 'Moderator',
                 sendEmail: true,
                 downloadCSV: false,
             });
-            loadStudents();
+            loadModerators();
         } catch (error) {
-            console.error('Error adding student:', error);
-            toast.error(error?.response?.data?.message || 'Failed to add student');
+            console.error('Error adding moderator:', error);
+            toast.error(error?.response?.data?.message || 'Failed to add moderator');
         }
     };
 
     const handleDelete = async (userId) => {
-        if (!confirm('Are you sure you want to delete this student?')) return;
+        if (!confirm('Are you sure you want to delete this moderator?')) return;
 
         try {
             await api.delete(`/institutions/staff/${userId}`);
-            toast.success('Student deleted successfully');
-            loadStudents();
+            toast.success('Moderator deleted successfully');
+            loadModerators();
         } catch (error) {
-            toast.error(error?.response?.data?.message || 'Failed to delete student');
+            toast.error(error?.response?.data?.message || 'Failed to delete moderator');
         }
     };
 
-    const handleEdit = (student) => {
-        setEditingStudent(student);
+    const handleEdit = (moderator) => {
+        setEditingModerator(moderator);
         setFormData({
-            name: student.name,
-            email: student.email,
-            batchId: student.batchId || '',
+            name: moderator.name,
+            email: moderator.email,
+            role: 'Moderator',
             sendEmail: false,
             downloadCSV: false,
         });
         setShowEditModal(true);
     };
 
-    const handleUpdateStudent = async (e) => {
+    const handleUpdateModerator = async (e) => {
         e.preventDefault();
         try {
-            await api.patch(`/institutions/staff/${editingStudent.id}`, {
+            await api.patch(`/institutions/staff/${editingModerator.id}`, {
                 name: formData.name,
-                batchId: formData.batchId || null,
+                role: 'Moderator',
             });
-            toast.success('Student updated successfully');
+            toast.success('Moderator updated successfully');
             setShowEditModal(false);
-            setEditingStudent(null);
-            loadStudents();
+            setEditingModerator(null);
+            loadModerators();
         } catch (error) {
-            console.error('Error updating student:', error);
-            toast.error(error?.response?.data?.message || 'Failed to update student');
+            console.error('Error updating moderator:', error);
+            toast.error(error?.response?.data?.message || 'Failed to update moderator');
         }
     };
 
     const openAddModal = () => {
-        setFormData({ ...formData, role: 'Student', batchId: '' });
+        setFormData({ ...formData, role: 'Moderator' });
         setShowAddModal(true);
-    };
-
-    const getBatchName = (batchId) => {
-        if (!batchId) return '-';
-        const batch = batches.find(b => b._id === batchId);
-        return batch ? batch.name : batchId;
     };
 
     const columns = [
         { header: 'Name', accessor: 'name' },
         { header: 'Email', accessor: 'email' },
         {
-            header: 'Batch',
-            render: (row) => getBatchName(row.batchId)
+            header: 'Role',
+            render: () => <span className="font-medium">Moderator</span>
         },
         {
             header: 'Status',
@@ -154,7 +147,7 @@ export default function Students() {
                             handleEdit(row);
                         }}
                         className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                        title="Edit Student"
+                        title="Edit Moderator"
                     >
                         <Edit size={18} />
                     </button>
@@ -164,7 +157,7 @@ export default function Students() {
                             handleDelete(row.id);
                         }}
                         className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        title="Delete Student"
+                        title="Delete Moderator"
                     >
                         <Trash2 size={18} />
                     </button>
@@ -177,37 +170,39 @@ export default function Students() {
         return <LoadingSpinner centered />;
     }
 
+
+
     return (
         <div className="max-w-7xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className={`text-4xl font-bold ${textPrimary} mb-2`}>Students</h1>
-                    <p className={textSecondary}>Manage students and batch assignments</p>
+                    <h1 className={`text-4xl font-bold ${textPrimary} mb-2`}>Moderators</h1>
+                    <p className={textSecondary}>Manage your content moderators and support staff</p>
                 </div>
                 <button
                     onClick={openAddModal}
                     className={`flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl shadow-lg shadow-purple-500/50 hover:shadow-xl hover:scale-105 transition-all font-medium`}
                 >
-                    <UserPlus size={18} />
-                    Add Student
+                    <Shield size={18} />
+                    Add Moderator
                 </button>
             </div>
 
             <div className={`${cardBg} border rounded-2xl p-6 shadow-xl`}>
                 <Table
                     columns={columns}
-                    data={students}
-                    emptyMessage="No students found. Add your first student to get started."
+                    data={moderators}
+                    emptyMessage="No moderators found. Add your first moderator to get started."
                 />
             </div>
 
-            {/* Add Student Modal */}
+            {/* Add Staff Modal */}
             <Modal
                 isOpen={showAddModal}
                 onClose={() => setShowAddModal(false)}
-                title="Add Student"
+                title="Add Moderator"
             >
-                <form onSubmit={handleAddStudent} className="space-y-4">
+                <form onSubmit={handleAddModerator} className="space-y-4">
                     <InputField
                         label="Name"
                         required
@@ -225,28 +220,7 @@ export default function Students() {
                         placeholder="email@example.com"
                     />
 
-                    <div>
-                        <label className={`block text-sm font-medium mb-1 ${textPrimary}`}>
-                            Batch {batches.length > 0 && '(Optional)'}
-                        </label>
-                        <select
-                            className={`w-full px-4 py-2 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg}`}
-                            value={formData.batchId}
-                            onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
-                        >
-                            <option value="">Select a batch (optional)</option>
-                            {batches.map((batch) => (
-                                <option key={batch._id} value={batch._id}>
-                                    {batch.name} {batch.academicYear && `(${batch.academicYear})`}
-                                </option>
-                            ))}
-                        </select>
-                        {batches.length === 0 && (
-                            <p className="text-xs text-red-500 mt-1">
-                                No batches available. Create a batch first.
-                            </p>
-                        )}
-                    </div>
+                    {/* Role Selection Removed - defaults to Moderator */}
 
                     <div className="space-y-2">
                         <label className="flex items-center gap-2 cursor-pointer">
@@ -272,7 +246,7 @@ export default function Students() {
 
                     <div className="flex gap-3 pt-4">
                         <button type="submit" className="flex-1 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-medium shadow-lg hover:shadow-purple-500/30 transition-all">
-                            Add Student
+                            Add Moderator
                         </button>
                         <button
                             type="button"
@@ -285,13 +259,13 @@ export default function Students() {
                 </form>
             </Modal>
 
-            {/* Edit Student Modal */}
+            {/* Edit Moderator Modal */}
             <Modal
                 isOpen={showEditModal}
                 onClose={() => setShowEditModal(false)}
-                title="Edit Student"
+                title="Edit Moderator"
             >
-                <form onSubmit={handleUpdateStudent} className="space-y-4">
+                <form onSubmit={handleUpdateModerator} className="space-y-4">
                     <InputField
                         label="Name"
                         required
@@ -304,31 +278,23 @@ export default function Students() {
                         label="Email"
                         type="email"
                         value={formData.email}
-                        disabled
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="email@example.com"
+                        disabled
                     />
 
                     <div>
-                        <label className={`block text-sm font-medium mb-1 ${textPrimary}`}>
-                            Batch {batches.length > 0 && '(Optional)'}
-                        </label>
-                        <select
+                        <label className={`block text-sm font-medium mb-1 ${textPrimary}`}>Role</label>
+                        <input
                             className={`w-full px-4 py-2 rounded-xl border focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none transition-all ${inputBg}`}
-                            value={formData.batchId}
-                            onChange={(e) => setFormData({ ...formData, batchId: e.target.value })}
-                        >
-                            <option value="">Select a batch (optional)</option>
-                            {batches.map((batch) => (
-                                <option key={batch._id} value={batch._id}>
-                                    {batch.name} {batch.academicYear && `(${batch.academicYear})`}
-                                </option>
-                            ))}
-                        </select>
+                            value="Moderator"
+                            disabled
+                        />
                     </div>
 
                     <div className="flex gap-3 pt-4">
                         <button type="submit" className="flex-1 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl font-medium shadow-lg hover:shadow-purple-500/30 transition-all">
-                            Update Student
+                            Update Moderator
                         </button>
                         <button
                             type="button"
@@ -340,7 +306,7 @@ export default function Students() {
                     </div>
                 </form>
             </Modal>
-        </div>
+        </div >
     );
 }
 

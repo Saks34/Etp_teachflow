@@ -8,10 +8,10 @@ export default function StudentSidebar() {
     const { isDark, toggleTheme } = useTheme();
 
     const textPrimary = isDark ? 'text-white' : 'text-gray-900';
-    const textMuted = isDark ? 'text-gray-500' : 'text-gray-500';
+    const textMuted = isDark ? 'text-gray-400' : 'text-gray-600';
     const sidebarBg = isDark
-        ? 'bg-gray-900/50 backdrop-blur-2xl border-white/10'
-        : 'bg-white/40 backdrop-blur-2xl border-white/20';
+        ? 'bg-gray-900/60 backdrop-blur-xl border-white/10'
+        : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
 
     const menuItems = [
         { to: '/student/dashboard', icon: Home, label: 'Dashboard' },
