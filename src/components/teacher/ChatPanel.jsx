@@ -1,98 +1,172 @@
 import { useEffect, useRef, useState } from 'react';
-import { io } from 'socket.io-client';
-import { API_BASE } from '../../services/api';
-import { useTheme } from '../../context/ThemeContext';
 import {
     Send,
-    Users,
     MessageCircle,
-    Shield,
-    Ban,
     Trash2,
     Pin,
-    UserX,
-    Search,
     MoreVertical,
     Clock,
-    Smile,
-    X
+    Ban,
+    Eye,
+    UserX,
+    AlertCircle
 } from 'lucide-react';
+import { io } from 'socket.io-client';
+import toast from 'react-hot-toast';
+import { API_BASE } from '../../services/api';
 
 export default function ChatPanel({ liveClassId, batchId, token, user }) {
-    const { isDark } = useTheme();
     const [messages, setMessages] = useState([]);
     const [text, setText] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [activeTab, setActiveTab] = useState('chat'); // chat, participants
-    const [slowMode, setSlowMode] = useState(false);
+    const [hoveredMsg, setHoveredMsg] = useState(null);
+    const [slowMode, setSlowMode] = useState(0); // seconds, 0 = off
     const [chatPaused, setChatPaused] = useState(false);
-    const [participants, setParticipants] = useState([]); // This would ideally come from socket too
-    const [selectedMessage, setSelectedMessage] = useState(null);
-    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showTopChat, setShowTopChat] = useState(false);
+    const [socketConnected, setSocketConnected] = useState(false);
 
     const bottomRef = useRef(null);
     const socketRef = useRef(null);
 
-    useEffect(() => {
-        if (!liveClassId) return;
+    const isTeacher = user?.role?.toLowerCase() === 'teacher' || user?.role === 'admin';
+    const isModerator = isTeacher || user?.role?.toLowerCase() === 'moderator'; // Assuming moderator role exists or teacher acts as one
 
-        const url = `${API_BASE}`;
-        const socket = io(url + '/live-classes', {
+    // Initial connection
+    useEffect(() => {
+        if (!liveClassId || !token) return;
+
+        const socket = io(API_BASE + '/live-classes', {
             auth: { token },
         });
         socketRef.current = socket;
 
         socket.on('connect', () => {
+            setSocketConnected(true);
+            console.log('Connected to chat server');
             socket.emit('join-room', { liveClassId, batchId, historyLimit: 50 }, (ack) => {
                 if (!ack?.ok) {
-                    console.warn('join failed', ack?.error);
+                    console.error('Failed to join chat room:', ack?.error);
+                    toast.error('Failed to connect to chat');
                 }
             });
         });
 
+        socket.on('disconnect', () => {
+            setSocketConnected(false);
+            console.log('Disconnected from chat server');
+        });
+
         socket.on('chat-history', (payload) => {
-            const msgs = payload.messages || [];
-            setMessages(msgs.filter(m => !(m.type === 'system' && m.text === 'user-joined')));
+            if (payload.liveClassId === liveClassId) {
+                setMessages(payload.messages || []);
+                setChatPaused(!!payload.chatPaused);
+                setSlowMode(payload.slowMode || 0);
+            }
         });
 
         socket.on('message', (msg) => {
-            setMessages((prev) => [...prev, msg]);
+            if (msg.liveClassId === liveClassId) {
+                setMessages(prev => [...prev, msg]);
+            }
+        });
+
+        socket.on('user-joined', (evt) => {
+            // Optional: show user joined? The user asked to remove "user joined" messages in previous task.
+            // We will respect that request and NOT add them to the visible list.
+            // But we might want to update participant count or similar if we had that feature.
+        });
+
+        socket.on('user-left', (evt) => {
+            // Same as above
         });
 
         socket.on('system', (evt) => {
-            if (evt.type === 'user-joined') return;
-            setMessages((prev) => [...prev, { type: 'system', text: evt.type, ts: evt.ts, by: evt.by }]);
+            if (evt.liveClassId !== liveClassId) return;
+
+            // Handle specific system events that update state
+            if (evt.type === 'chat-cleared') {
+                setMessages([]);
+                toast('Chat cleared by moderator');
+            } else if (evt.type === 'class-ended') {
+                toast('Class ended');
+                setChatPaused(true);
+            } else if (evt.type === 'muted' && evt.targetUserId === user?.id) {
+                toast.error('You have been muted');
+            } else if (evt.type === 'unmuted' && evt.targetUserId === user?.id) {
+                toast.success('You have been unmuted');
+            } else if (evt.type === 'removed' && evt.targetUserId === user?.id) {
+                toast.error('You have been removed from the class');
+                // Optionally redirect or disconnect
+            }
+
+            // Add system message to chat log if it's relevant to everyone
+            // E.g. "Chat cleared", "Slow mode enabled" (though slow mode has its own event usually)
+            if (['chat-cleared', 'class-ended'].includes(evt.type)) {
+                setMessages(prev => [...prev, { ...evt, role: 'system', text: evt.text || evt.type }]);
+            }
+        });
+
+        socket.on('message-pinned', ({ messageId, isPinned }) => {
+            setMessages(prev => prev.map(m => m.id === messageId || m._id === messageId ? { ...m, isPinned } : m));
+        });
+
+        socket.on('message-deleted', ({ messageId }) => {
+            // Remove from view
+            setMessages(prev => prev.filter(m => m.id !== messageId && m._id !== messageId));
+        });
+
+        socket.on('slow-mode-updated', ({ slowMode }) => {
+            setSlowMode(slowMode);
+            toast(slowMode > 0 ? `Slow mode: ${slowMode}s` : 'Slow mode disabled');
+        });
+
+        socket.on('chat-pause-updated', ({ paused }) => {
+            setChatPaused(paused);
+            toast(paused ? 'Chat paused' : 'Chat resumed');
         });
 
         return () => {
-            try {
-                socket.emit('leave-room', { liveClassId });
-            } catch { }
             socket.disconnect();
             socketRef.current = null;
-            setMessages([]);
         };
-    }, [liveClassId, batchId, token]);
+    }, [liveClassId, batchId, token, user?.id]);
 
     useEffect(() => {
         if (bottomRef.current) {
             bottomRef.current.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [messages]);
+    }, [messages, showTopChat]);
 
     const send = (e) => {
         e?.preventDefault();
-        const s = socketRef.current;
-        if (!s) return;
-
         const trimmed = (text || '').trim();
-        if (!trimmed || chatPaused) return;
+        if (!trimmed) return;
+        if (chatPaused && !isModerator) return;
 
-        s.emit('send-message', { liveClassId, text: trimmed, batchId }, (ack) => {
-            if (!ack?.ok) console.warn('send failed', ack?.error);
-        });
+        // Optimistic UI update? No, let's wait for ack or echo to ensure consistency, 
+        // but standard pattern is echo from server. 
+        // We will clear input immediately though.
+        // Check slow mode locally first if student
+        if (!isModerator && slowMode > 0) {
+            // Find last message by me
+            const myMsgs = messages.filter(m => m.senderId === user.id && m.type !== 'system');
+            const last = myMsgs[myMsgs.length - 1];
+            if (last) {
+                const diff = (Date.now() - new Date(last.ts).getTime()) / 1000;
+                if (diff < slowMode) {
+                    toast.error(`Slow mode: wait ${Math.ceil(slowMode - diff)}s`);
+                    return;
+                }
+            }
+        }
+
+        if (socketRef.current) {
+            socketRef.current.emit('send-message', { liveClassId, text: trimmed, batchId }, (ack) => {
+                if (!ack?.ok) {
+                    toast.error(ack?.error || 'Failed to send');
+                }
+            });
+        }
         setText('');
-        setShowEmojiPicker(false);
     };
 
     const handleKeyPress = (e) => {
@@ -102,22 +176,44 @@ export default function ChatPanel({ liveClassId, batchId, token, user }) {
         }
     };
 
-    // Mock functions for UI only - backend implementation would be needed for real functionality
+    // Moderation Actions
     const deleteMessage = (msgId) => {
-        setMessages(prev => prev.filter(m => m.id !== msgId));
-        setSelectedMessage(null);
+        if (!socketRef.current) return;
+        socketRef.current.emit('delete-message', { liveClassId, messageId: msgId });
     };
 
-    const pinMessage = (msgId) => {
-        setMessages(prev => prev.map(m =>
-            m.id === msgId ? { ...m, isPinned: !m.isPinned } : m
-        ));
-        setSelectedMessage(null);
+    const pinMessage = (msgId, currentPinnedState) => {
+        if (!socketRef.current) return;
+        socketRef.current.emit('pin-message', { liveClassId, messageId: msgId, isPinned: !currentPinnedState });
     };
 
-    const muteUser = (userId) => {
-        alert(`User ${userId} has been muted`);
-        setSelectedMessage(null);
+    const timeoutUser = (userId) => {
+        if (!socketRef.current) return;
+        socketRef.current.emit('mute-user', { liveClassId, targetUserId: userId }, (ack) => {
+            if (ack?.ok) toast.success('User muted');
+            else toast.error('Failed to mute');
+        });
+    };
+
+    const hideUser = (userId) => {
+        // "Hide user" usually means ban or remove. Let's map to remove-user for now.
+        if (!confirm('Hide/Remove this user from class?')) return;
+        if (!socketRef.current) return;
+        socketRef.current.emit('remove-user', { liveClassId, targetUserId: userId }, (ack) => {
+            if (ack?.ok) toast.success('User removed');
+            else toast.error('Failed to remove');
+        });
+    };
+
+    const toggleSlowMode = () => {
+        if (!socketRef.current) return;
+        const newMode = slowMode === 0 ? 5 : 0; // Toggle 5s or Off
+        socketRef.current.emit('toggle-slow-mode', { liveClassId, duration: newMode });
+    };
+
+    const toggleChatPause = () => {
+        if (!socketRef.current) return;
+        socketRef.current.emit('toggle-chat-pause', { liveClassId, paused: !chatPaused });
     };
 
     const formatTime = (timestamp) => {
@@ -125,389 +221,219 @@ export default function ChatPanel({ liveClassId, batchId, token, user }) {
         return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     };
 
-    const filteredMessages = messages.filter(m =>
-        !searchQuery ||
-        (m.text && m.text.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (m.senderName && m.senderName.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-
-    const emojis = ['😊', '👍', '❤️', '🎉', '👏', '🔥', '💯', '✅'];
-
-    const isTeacher = user?.role === 'teacher' || user?.role === 'admin';
+    const displayedMessages = showTopChat
+        ? messages.filter(m => m.isPinned || m.role === 'Teacher' || m.role === 'teacher') // 'Teacher' from backend is capitalized usually? Checked model, it just stores string. Assuming 'Teacher' or 'teacher'
+        : messages;
 
     return (
-        <div className={`rounded-2xl shadow-xl border flex flex-col h-full transition-colors ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-            }`}>
+        <div className="rounded flex flex-col h-full bg-[#212121]">
             {/* Header */}
-            <div className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600">
-                            <MessageCircle className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                Live Chat
-                            </h3>
-                            <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                {participants.length} online
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Moderation Controls (Teacher Only) */}
-                    {isTeacher && (
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setSlowMode(!slowMode)}
-                                className={`p-2 rounded-lg transition-all ${slowMode
-                                    ? 'bg-yellow-500 text-white'
-                                    : isDark
-                                        ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                title="Slow Mode"
-                            >
-                                <Clock className="w-4 h-4" />
-                            </button>
-                            <button
-                                onClick={() => setChatPaused(!chatPaused)}
-                                className={`p-2 rounded-lg transition-all ${chatPaused
-                                    ? 'bg-red-500 text-white'
-                                    : isDark
-                                        ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                                title={chatPaused ? 'Resume Chat' : 'Pause Chat'}
-                            >
-                                {chatPaused ? <Ban className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
-                            </button>
-                        </div>
-                    )}
-                </div>
-
-                {/* Tabs */}
-                <div className="flex gap-1">
+            <div className="px-4 py-3 border-b border-[#303030]">
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-white flex items-center gap-2">
+                        Live chat
+                        {!socketConnected && <span className="text-[10px] text-red-500">(Connecting...)</span>}
+                    </h3>
                     <button
-                        onClick={() => setActiveTab('chat')}
-                        className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'chat'
-                            ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-md'
-                            : isDark
-                                ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
-                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        onClick={() => setShowTopChat(!showTopChat)}
+                        className={`text-xs px-2 py-1 rounded font-medium transition ${showTopChat
+                            ? 'bg-[#3ea6ff] text-black'
+                            : 'text-gray-400 hover:text-white'
                             }`}
                     >
-                        <MessageCircle className="w-4 h-4 inline mr-2" />
-                        Messages
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('participants')}
-                        className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'participants'
-                            ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-md'
-                            : isDark
-                                ? 'text-gray-400 hover:text-gray-300 hover:bg-gray-700'
-                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                            }`}
-                    >
-                        <Users className="w-4 h-4 inline mr-2" />
-                        Participants
+                        {showTopChat ? 'Show all' : 'Top chat'}
                     </button>
                 </div>
 
-                {/* Search Bar */}
-                {activeTab === 'chat' && (
-                    <div className="mt-3 relative">
-                        <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-gray-500' : 'text-gray-400'
-                            }`} />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search messages..."
-                            className={`w-full pl-10 pr-4 py-2 rounded-lg text-sm outline-none transition-all ${isDark
-                                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-violet-500'
-                                : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-violet-500'
-                                } border`}
-                        />
+                {/* Moderation Controls */}
+                {isModerator && (
+                    <div className="flex gap-2 mb-3">
+                        <button
+                            onClick={toggleSlowMode}
+                            className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition flex items-center justify-center gap-1 ${slowMode > 0
+                                ? 'bg-yellow-600 text-white'
+                                : 'bg-[#282828] text-gray-400 hover:bg-[#303030]'
+                                }`}
+                            title="Slow mode - limits how often users can send messages"
+                        >
+                            <Clock className="w-3 h-3" />
+                            {slowMode > 0 ? `${slowMode}s` : 'Slow'}
+                        </button>
+                        <button
+                            onClick={toggleChatPause}
+                            className={`flex-1 px-2 py-1.5 rounded text-xs font-medium transition flex items-center justify-center gap-1 ${chatPaused
+                                ? 'bg-red-600 text-white'
+                                : 'bg-[#282828] text-gray-400 hover:bg-[#303030]'
+                                }`}
+                            title={chatPaused ? 'Resume chat' : 'Pause chat'}
+                        >
+                            <Ban className="w-3 h-3" />
+                            {chatPaused ? 'Resume' : 'Pause'}
+                        </button>
                     </div>
                 )}
 
                 {/* Status Messages */}
-                {slowMode && (
-                    <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-                        <Clock className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                        <span className="text-xs text-yellow-700 dark:text-yellow-300">
-                            Slow mode enabled: 5 second cooldown between messages
-                        </span>
+                {slowMode > 0 && (
+                    <div className="text-xs px-2 py-1.5 rounded mb-2 bg-yellow-900/20 text-yellow-400 flex items-center gap-2">
+                        <Clock className="w-3 h-3" />
+                        Slow mode: {slowMode} sec limit
                     </div>
                 )}
                 {chatPaused && (
-                    <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30">
-                        <Ban className="w-4 h-4 text-red-600 dark:text-red-400" />
-                        <span className="text-xs text-red-700 dark:text-red-300">
-                            Chat is paused by teacher
-                        </span>
+                    <div className="text-xs px-2 py-1.5 rounded mb-2 bg-red-900/20 text-red-400 flex items-center gap-2">
+                        <Ban className="w-3 h-3" />
+                        Chat is paused
                     </div>
                 )}
             </div>
 
-            {/* Content Area */}
-            <div className="flex-1 overflow-hidden flex flex-col">
-                {activeTab === 'chat' ? (
-                    <>
-                        {/* Messages Area */}
-                        <div className="flex-1 overflow-y-auto px-6 py-4">
-                            <div className="space-y-3">
-                                {filteredMessages.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <MessageCircle className={`w-12 h-12 mx-auto mb-3 ${isDark ? 'text-gray-600' : 'text-gray-300'
-                                            }`} />
-                                        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                            {searchQuery ? 'No messages found' : 'No messages yet. Start the conversation!'}
-                                        </p>
-                                    </div>
-                                ) : (
-                                    filteredMessages.map((m, idx) => (
-                                        <div key={m.id || idx}>
-                                            {m.type === 'system' ? (
-                                                <div className={`text-xs text-center py-2 flex items-center justify-center gap-2 ${isDark ? 'text-gray-500' : 'text-gray-400'
-                                                    }`}>
-                                                    <div className={`h-px flex-1 ${isDark ? 'bg-gray-700' : 'bg-gray-300'}`}></div>
-                                                    <span className="italic">{m.text} {m.by?.name && `by ${m.by.name}`}</span>
-                                                    <div className={`h-px flex-1 ${isDark ? 'bg-gray-700' : 'bg-gray-300'}`}></div>
-                                                </div>
-                                            ) : (
-                                                <div className={`group relative rounded-xl p-3 transition-all ${m.isPinned
-                                                    ? isDark
-                                                        ? 'bg-violet-900/20 border border-violet-700'
-                                                        : 'bg-violet-50 border border-violet-200'
-                                                    : isDark
-                                                        ? 'bg-gray-700/50 hover:bg-gray-700'
-                                                        : 'bg-gray-50 hover:bg-gray-100'
-                                                    }`}>
-                                                    {m.isPinned && (
-                                                        <div className="absolute -top-2 -right-2">
-                                                            <div className="bg-violet-600 text-white rounded-full p-1">
-                                                                <Pin className="w-3 h-3" />
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    <div className="flex items-start justify-between gap-2">
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                                <span className={`font-semibold text-sm ${m.role === 'teacher'
-                                                                    ? 'text-violet-600 dark:text-violet-400'
-                                                                    : isDark ? 'text-white' : 'text-gray-900'
-                                                                    }`}>
-                                                                    {m.senderName || 'User'}
-                                                                </span>
-                                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${m.role === 'teacher'
-                                                                    ? 'bg-violet-500/20 text-violet-700 dark:text-violet-300'
-                                                                    : isDark
-                                                                        ? 'bg-gray-600 text-gray-300'
-                                                                        : 'bg-gray-200 text-gray-600'
-                                                                    }`}>
-                                                                    {m.role || 'student'}
-                                                                </span>
-                                                                <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                                    {m.ts && formatTime(m.ts)}
-                                                                </span>
-                                                            </div>
-                                                            <p className={`text-sm break-words ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-                                                                {m.text}
-                                                            </p>
-                                                        </div>
-
-                                                        {/* Message Actions */}
-                                                        {isTeacher && (
-                                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <button
-                                                                    onClick={() => setSelectedMessage(selectedMessage === m.id ? null : m.id)}
-                                                                    className={`p-1.5 rounded-lg transition-colors ${isDark
-                                                                        ? 'hover:bg-gray-600 text-gray-400'
-                                                                        : 'hover:bg-gray-200 text-gray-500'
-                                                                        }`}
-                                                                >
-                                                                    <MoreVertical className="w-4 h-4" />
-                                                                </button>
-
-                                                                {selectedMessage === m.id && (
-                                                                    <div className={`absolute right-0 mt-2 w-48 rounded-xl shadow-xl border z-10 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                                                                        }`}>
-                                                                        <button
-                                                                            onClick={() => pinMessage(m.id)}
-                                                                            className={`w-full px-4 py-2 text-left text-sm flex items-center gap-2 transition-colors ${isDark
-                                                                                ? 'hover:bg-gray-700 text-gray-300'
-                                                                                : 'hover:bg-gray-50 text-gray-700'
-                                                                                }`}
-                                                                        >
-                                                                            <Pin className="w-4 h-4" />
-                                                                            {m.isPinned ? 'Unpin' : 'Pin'} Message
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => deleteMessage(m.id)}
-                                                                            className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                                                                        >
-                                                                            <Trash2 className="w-4 h-4" />
-                                                                            Delete Message
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => muteUser(m.userId)}
-                                                                            className="w-full px-4 py-2 text-left text-sm flex items-center gap-2 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
-                                                                        >
-                                                                            <UserX className="w-4 h-4" />
-                                                                            Mute User
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                                <div ref={bottomRef} />
-                            </div>
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto px-3 py-2">
+                <div className="space-y-1">
+                    {displayedMessages.length === 0 ? (
+                        <div className="text-center py-8">
+                            <MessageCircle className="w-12 h-12 mx-auto mb-3 text-gray-700" />
+                            <p className="text-sm text-gray-500">
+                                No messages yet
+                            </p>
                         </div>
+                    ) : (
+                        displayedMessages.map((m) => {
+                            // Normalize ID
+                            const msgId = m.id || m._id;
 
-                        {/* Input Area */}
-                        <div className={`px-6 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                            {/* Emoji Picker */}
-                            {showEmojiPicker && (
-                                <div className={`mb-3 p-3 rounded-lg border ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-                                    }`}>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                                            Quick Reactions
+                            if (m.type === 'system') {
+                                return (
+                                    <div key={msgId} className="flex items-center gap-3 py-2 text-gray-500">
+                                        <div className="flex-1 h-px bg-[#303030]"></div>
+                                        <span className="text-xs italic flex items-center gap-1.5">
+                                            <AlertCircle className="w-3 h-3" />
+                                            {m.text}
                                         </span>
-                                        <button
-                                            onClick={() => setShowEmojiPicker(false)}
-                                            className={`p-1 rounded transition-colors ${isDark ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
-                                                }`}
-                                        >
-                                            <X className="w-3 h-3" />
-                                        </button>
+                                        <div className="flex-1 h-px bg-[#303030]"></div>
                                     </div>
-                                    <div className="flex gap-2">
-                                        {emojis.map((emoji, idx) => (
-                                            <button
-                                                key={idx}
-                                                onClick={() => {
-                                                    setText(prev => prev + emoji);
-                                                    setShowEmojiPicker(false);
-                                                }}
-                                                className={`text-2xl p-2 rounded-lg transition-transform hover:scale-125 ${isDark ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
-                                                    }`}
-                                            >
-                                                {emoji}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                                );
+                            }
 
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                    className={`p-2.5 rounded-lg transition-colors ${isDark
-                                        ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            return (
+                                <div
+                                    key={msgId}
+                                    onMouseEnter={() => setHoveredMsg(msgId)}
+                                    onMouseLeave={() => setHoveredMsg(null)}
+                                    className={`group p-2 rounded transition ${m.isPinned
+                                        ? 'bg-[#263850]'
+                                        : 'hover:bg-[#282828]'
                                         }`}
-                                    title="Emojis"
                                 >
-                                    <Smile className="w-5 h-5" />
-                                </button>
-                                <input
-                                    type="text"
-                                    value={text}
-                                    onChange={(e) => setText(e.target.value)}
-                                    onKeyPress={handleKeyPress}
-                                    placeholder={chatPaused ? 'Chat is paused' : 'Type a message...'}
-                                    disabled={chatPaused}
-                                    className={`flex-1 px-4 py-2.5 rounded-lg border outline-none transition-all text-sm ${isDark
-                                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-violet-500'
-                                        : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-violet-500'
-                                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                />
-                                <button
-                                    onClick={send}
-                                    disabled={chatPaused || !text.trim()}
-                                    className="px-5 py-2.5 rounded-lg bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
-                                >
-                                    <Send className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Send</span>
-                                </button>
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    /* Participants List */
-                    <div className="flex-1 overflow-y-auto px-6 py-4">
-                        <div className="space-y-2">
-                            {participants.length === 0 ? (
-                                <div className="text-center py-8 text-sm text-gray-500">
-                                    No active participants visible.
-                                </div>
-                            ) : (
-                                participants.map((p) => (
-                                    <div
-                                        key={p.id}
-                                        className={`flex items-center justify-between p-3 rounded-xl transition-all ${isDark
-                                            ? 'bg-gray-700/50 hover:bg-gray-700'
-                                            : 'bg-gray-50 hover:bg-gray-100'
-                                            }`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${p.role === 'teacher'
-                                                    ? 'bg-gradient-to-br from-violet-500 to-purple-600 text-white'
-                                                    : isDark
-                                                        ? 'bg-gray-600 text-white'
-                                                        : 'bg-gray-200 text-gray-700'
-                                                    }`}>
-                                                    {p.name.charAt(0)}
-                                                </div>
-                                                {p.isOnline && (
-                                                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white dark:border-gray-800"></div>
-                                                )}
-                                            </div>
-                                            <div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`font-medium text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                                        {p.name}
-                                                    </span>
-                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.role === 'teacher'
-                                                        ? 'bg-violet-500/20 text-violet-700 dark:text-violet-300'
-                                                        : isDark
-                                                            ? 'bg-gray-600 text-gray-300'
-                                                            : 'bg-gray-200 text-gray-600'
-                                                        }`}>
-                                                        {p.role}
-                                                    </span>
-                                                </div>
-                                            </div>
+                                    {/* Pinned Indicator */}
+                                    {m.isPinned && (
+                                        <div className="flex items-center gap-1 mb-1">
+                                            <Pin className="w-3 h-3 text-[#3ea6ff]" />
+                                            <span className="text-xs text-[#3ea6ff]">
+                                                Pinned
+                                            </span>
                                         </div>
-                                        {isTeacher && p.role !== 'teacher' && (
-                                            <button
-                                                onClick={() => muteUser(p.id)}
-                                                className={`p-2 rounded-lg transition-colors ${isDark
-                                                    ? 'hover:bg-gray-600 text-gray-400'
-                                                    : 'hover:bg-gray-200 text-gray-500'
-                                                    }`}
-                                                title="Mute user"
-                                            >
-                                                <UserX className="w-4 h-4" />
-                                            </button>
+                                    )}
+
+                                    <div className="flex items-start gap-2">
+                                        {/* Avatar */}
+                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${m.role === 'Teacher' || m.role === 'teacher'
+                                            ? 'bg-red-600 text-white'
+                                            : 'bg-[#3ea6ff] text-black'
+                                            }`}>
+                                            {m.senderName ? m.senderName.charAt(0) : 'U'}
+                                        </div>
+
+                                        {/* Message Content */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <span className={`text-xs font-medium ${m.role === 'Teacher' || m.role === 'teacher'
+                                                    ? 'text-red-400'
+                                                    : 'text-[#3ea6ff]'
+                                                    }`}>
+                                                    {m.senderName || 'User'}
+                                                </span>
+                                                {(m.role === 'Teacher' || m.role === 'teacher') && (
+                                                    <span className="text-[9px] px-1 py-0.5 rounded bg-red-600/20 text-red-400 font-bold">
+                                                        MOD
+                                                    </span>
+                                                )}
+                                                <span className="text-[10px] text-gray-600">
+                                                    {formatTime(m.ts)}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs mt-0.5 break-words text-gray-300">
+                                                {m.text}
+                                            </p>
+                                        </div>
+
+                                        {/* Moderation Menu (YouTube-style) */}
+                                        {isModerator && m.senderId !== user?.id && (
+                                            <div className={`flex-shrink-0 transition-opacity ${hoveredMsg === msgId ? 'opacity-100' : 'opacity-0'
+                                                }`}>
+                                                <div className="flex gap-0.5 rounded p-0.5 bg-[#282828]">
+                                                    <button
+                                                        onClick={() => pinMessage(msgId, m.isPinned)}
+                                                        className="p-1 rounded transition hover:bg-[#303030]"
+                                                        title={m.isPinned ? 'Unpin message' : 'Pin message'}
+                                                    >
+                                                        <Pin className={`w-3 h-3 ${m.isPinned ? 'text-[#3ea6ff]' : 'text-gray-400'
+                                                            }`} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteMessage(msgId)}
+                                                        className="p-1 rounded transition hover:bg-[#303030]"
+                                                        title="Delete message"
+                                                    >
+                                                        <Trash2 className="w-3 h-3 text-gray-400" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => timeoutUser(m.senderId)}
+                                                        className="p-1 rounded transition hover:bg-[#303030]"
+                                                        title="Timeout user (Mute)"
+                                                    >
+                                                        <Clock className="w-3 h-3 text-gray-400" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => hideUser(m.senderId)}
+                                                        className="p-1 rounded transition hover:bg-[#303030]"
+                                                        title="Hide user from chat (Remove)"
+                                                    >
+                                                        <Eye className="w-3 h-3 text-gray-400" />
+                                                    </button>
+                                                </div>
+                                            </div>
                                         )}
                                     </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                )}
+                                </div>
+                            );
+                        })
+                    )}
+                    <div ref={bottomRef} />
+                </div>
+            </div>
+
+            {/* Input Area */}
+            <div className="px-3 py-3 border-t border-[#303030]">
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder={chatPaused && !isModerator ? 'Chat is paused' : isModerator ? 'Chat as moderator...' : 'Say something...'}
+                        disabled={(!isModerator && chatPaused) || !socketConnected}
+                        className="flex-1 px-3 py-2 rounded text-sm outline-none transition bg-[#0f0f0f] border-[#303030] text-white placeholder-gray-500 focus:border-[#3ea6ff] border disabled:opacity-50"
+                    />
+                    <button
+                        onClick={send}
+                        disabled={!text.trim() || (!isModerator && chatPaused)}
+                        className="px-3 py-2 rounded text-sm font-medium transition bg-[#3ea6ff] hover:bg-[#65b8ff] text-black disabled:opacity-50"
+                    >
+                        <MessageCircle className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
         </div>
     );

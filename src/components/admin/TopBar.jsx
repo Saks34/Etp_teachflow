@@ -1,10 +1,10 @@
 import { useAuth } from '../../context/AuthContext';
-import { Menu, X, Bell, LogOut } from 'lucide-react';
+import { Menu, X, Bell, LogOut, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function TopBar({ sidebarOpen, setSidebarOpen }) {
     const { user, logout } = useAuth();
-    const { isDark } = useTheme();
+    const { isDark, toggleTheme } = useTheme();
 
     const cardBg = isDark
         ? 'bg-gray-900/60 backdrop-blur-xl border-white/10'
@@ -36,6 +36,13 @@ export default function TopBar({ sidebarOpen, setSidebarOpen }) {
                 >
                     <Bell size={20} />
                     <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                </button>
+                <button
+                    onClick={toggleTheme}
+                    className={`p-2.5 ${isDark ? 'bg-white/10 hover:bg-white/20' : 'bg-white/60 hover:bg-white/80'} rounded-xl transition-all hover:scale-110 ${textPrimary}`}
+                    aria-label="Toggle theme"
+                >
+                    {isDark ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
                 <div className={`flex items-center gap-3 px-4 py-2 ${isDark ? 'bg-white/10' : 'bg-white/60'} rounded-xl`}>
                     <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md">

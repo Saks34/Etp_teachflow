@@ -77,20 +77,21 @@ export default function App() {
               <Route path="/teacher" element={<TeacherLayout />}>
                 <Route index element={<Navigate to="/teacher/dashboard" replace />} />
                 <Route path="dashboard" element={<TeacherDashboard />} />
-                <Route path="class/:id" element={<TeacherClassDetail />} />
                 <Route path="notes" element={<TeacherNotes />} />
                 <Route path="timetable" element={<TeacherTimetable />} />
               </Route>
+              {/* Full Screen Live Class Control */}
+              <Route path="/teacher/class/:id" element={<TeacherClassDetail />} />
             </Route>
 
             <Route element={<RoleRoute allow={["Student"]} />}>
               <Route path="/student" element={<StudentLayout />}>
                 <Route index element={<Navigate to="/student/dashboard" replace />} />
                 <Route path="dashboard" element={<StudentDashboard />} />
-                <Route path="class/:id" element={<StudentClassDetail />} />
                 <Route path="notes" element={<StudentNotes />} />
                 <Route path="timetable" element={<StudentTimetable />} />
               </Route>
+              <Route path="/student/class/:id" element={<StudentClassDetail />} />
             </Route>
           </Route>
 

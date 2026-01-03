@@ -1,19 +1,31 @@
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import api from '../../services/api';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
-import StatusBadge from '../../components/teacher/StatusBadge';
 import ChatPanel from '../../components/student/ChatPanel';
-import NotesList from '../../components/student/NotesList';
+// NotesList is being replaced by inline UI but we might need logic from it if it had any specific handling? 
+// The existing NotesList just took props. We will implement the UI directly here as per request.
 import { useAuth } from '../../context/AuthContext';
 import CustomYouTubePlayer from '../../components/shared/CustomYouTubePlayer';
 import CommentSection from '../../components/student/CommentSection';
 import usePageTitle from '../../hooks/usePageTitle';
 import { useTheme } from '../../context/ThemeContext';
-import { Video, BookOpen, Clock, User } from 'lucide-react';
+import {
+    Video,
+    BookOpen,
+    Clock,
+    User,
+    Download,
+    MessageCircle,
+    FileText,
+    Radio,
+    ArrowLeft
+} from 'lucide-react';
 
 export default function StudentClassDetail() {
     const { id } = useParams();
+    const navigate = useNavigate();
     const { isDark } = useTheme();
     const [loading, setLoading] = useState(true);
     const [classData, setClassData] = useState(null);
@@ -23,14 +35,9 @@ export default function StudentClassDetail() {
 
     usePageTitle(classData?.subject || 'Class Detail', 'Student');
 
-    const textPrimary = isDark ? 'text-white' : 'text-gray-900';
-    const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
-    const cardBg = isDark
-        ? 'bg-gray-900/60 backdrop-blur-xl border-white/10'
-        : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
-
     useEffect(() => {
         loadClassData();
+        // loadNotes is dependent on class/batch, usually done after we know the batch or concurrently if we trust the user context
         loadNotes();
     }, [id]);
 
@@ -39,7 +46,6 @@ export default function StudentClassDetail() {
         setError(null);
         try {
             const { data } = await api.get(`/live-classes/${id}`);
-            // console.log('Class Data Received:', data);
             setClassData(data);
         } catch (e) {
             setError(e?.response?.data?.message || 'Failed to load class details');
@@ -62,6 +68,72 @@ export default function StudentClassDetail() {
         }
     };
 
+    // Socket Logic for Real-time Status and Auto-refresh
+    useEffect(() => {
+        if (!classData?._id) return;
+
+        const socket = io('http://localhost:5000/live-classes', {
+            auth: { token: localStorage.getItem('accessToken') },
+            transports: ['websocket']
+        });
+
+        socket.on('connect_error', (err) => console.error('Socket connection error:', err));
+
+        socket.emit('join-room', { liveClassId: classData._id, batchId: user?.batch?._id || user?.batch });
+
+        socket.on('class-live', (data) => {
+            console.log('Class went live:', data);
+            setClassData(prev => ({ ...prev, status: 'Live', streamInfo: data.streamInfo }));
+        });
+
+        socket.on('class-ended', () => {
+            console.log('Class ended');
+            setClassData(prev => ({ ...prev, status: 'Completed', streamInfo: { ...prev.streamInfo, broadcastId: null } }));
+        });
+
+        return () => {
+            socket.disconnect();
+        };
+    }, [classData?._id]);
+
+    const playerRef = useRef(null);
+
+    const handleJumpToLive = () => {
+        if (playerRef.current) {
+            playerRef.current.seekToLive();
+        }
+    };
+
+    const getStatusConfig = () => {
+        if (!classData) return {};
+
+        // Mapping backend status to UI config
+        // Backend statuses: 'Live', 'Scheduled', 'Completed' (assuming caps, or standardize)
+        const status = classData.status;
+
+        const configs = {
+            Live: {
+                badge: 'bg-red-500',
+                text: 'LIVE NOW',
+                icon: Radio,
+                pulse: true
+            },
+            Scheduled: {
+                badge: 'bg-blue-500',
+                text: 'UPCOMING',
+                icon: Clock,
+                pulse: false
+            },
+            Completed: {
+                badge: 'bg-green-500',
+                text: 'RECORDED',
+                icon: Video,
+                pulse: false
+            }
+        };
+        return configs[status] || configs.Scheduled;
+    };
+
     if (loading) {
         return <LoadingSpinner centered />;
     }
@@ -74,121 +146,203 @@ export default function StudentClassDetail() {
         );
     }
 
+    const statusConfig = getStatusConfig();
+    const StatusIcon = statusConfig.icon || Clock;
+
     return (
-        <div className="max-w-7xl mx-auto space-y-6">
-            {/* Class Info Bar */}
-            <div className={`${cardBg} border rounded-2xl p-6 shadow-xl`}>
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                            <h1 className={`text-3xl font-bold ${textPrimary}`}>
-                                {classData.subject}
-                            </h1>
-                            <StatusBadge status={classData.status} />
-                        </div>
+        <div className={`min-h-screen transition-colors ${isDark ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'
+            }`}>
+            <div className="max-w-[1920px] mx-auto">
+                {/* Hero Section: Video + Chat */}
+                <div className="flex flex-col lg:flex-row bg-black">
+                    {/* Video Player Section - Flex-1 to take available space */}
+                    <div className="flex-1 relative group bg-black">
+                        {/* Aspect Ratio Container for Video */}
+                        <div className="w-full aspect-video relative">
+                            {/* Back Button Overlay */}
+                            <div className="absolute top-4 left-4 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={() => navigate(-1)}
+                                    className="p-2 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm transition-colors"
+                                >
+                                    <ArrowLeft className="w-6 h-6" />
+                                </button>
+                            </div>
 
-                        <div className={`flex flex-wrap items-center gap-6 text-sm ${textSecondary} font-medium`}>
-                            <div className="flex items-center gap-2">
-                                <User size={16} className="text-violet-500" />
-                                <span>Teacher: <span className={textPrimary}>{classData.teacher?.name || 'Not assigned'}</span></span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <BookOpen size={16} className="text-violet-500" />
-                                <span>Batch: <span className={textPrimary}>{classData.batch?.name || classData.batch}</span></span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Clock size={16} className="text-violet-500" />
-                                <span>{classData.startTime} - {classData.endTime}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Content: Video + Chat */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Video Player */}
-                <div className="lg:col-span-2">
-                    <div className={`${cardBg} border rounded-2xl overflow-hidden shadow-2xl relative aspect-video group`}>
-                        {/* LIVE Indicator Badge */}
-                        {classData.status === 'Live' && (
-                            <div className="absolute top-4 left-4 z-20 flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-full text-xs font-bold shadow-lg shadow-red-600/20 animate-pulse pointer-events-none">
-                                <span className="w-2 h-2 bg-white rounded-full animate-ping"></span>
-                                <span>LIVE NOW</span>
-                            </div>
-                        )}
-
-                        {/* Stream Ended Overlay */}
-                        {classData.status === 'Completed' && (
-                            <div className="absolute top-4 left-4 z-20 px-4 py-2 bg-zinc-900/90 backdrop-blur text-white rounded-lg text-xs font-bold uppercase tracking-wider shadow-lg flex items-center gap-2 pointer-events-none">
-                                <Video size={14} className="text-emerald-400" />
-                                Stream Ended • Recording Available
-                            </div>
-                        )}
-
-                        {classData.youtubeUrl || classData.streamInfo?.liveUrl || classData.streamInfo?.broadcastId ? (
-                            <CustomYouTubePlayer
-                                videoId={
-                                    (classData.status === 'Completed' && classData.recordings?.length > 0)
-                                        ? classData.recordings[0].youtubeVideoId
-                                        : (classData.streamInfo?.broadcastId ||
-                                            classData.streamInfo?.liveUrl?.split('v=')[1]?.split('&')[0] ||
-                                            classData.youtubeUrl?.split('v=')[1]?.split('&')[0])
-                                }
-                                autoplay={true}
-                            />
-                        ) : (
-                            <div className={`w-full h-full flex flex-col items-center justify-center p-8 text-center bg-zinc-900`}>
-                                <div className={`p-6 rounded-full bg-zinc-800 mb-6 group-hover:scale-110 transition-transform`}>
-                                    <Video size={48} className="text-zinc-600" />
+                            {/* Status Overlay */}
+                            {classData.status === 'Live' && (
+                                <div className="absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-md text-xs font-bold shadow-xl animate-pulse pointer-events-none">
+                                    <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
+                                    <span>LIVE</span>
                                 </div>
-                                <p className={`text-xl font-bold text-zinc-300 mb-2`}>
-                                    {classData.status === 'Scheduled' ? 'Stream Not Started Yet' : 'No Stream Available'}
-                                </p>
-                                <p className={`text-zinc-500`}>
-                                    {classData.status === 'Scheduled'
-                                        ? 'The teacher will start the stream soon. Please wait...'
-                                        : 'This class does not have a live stream.'}
-                                </p>
-                            </div>
-                        )}
+                            )}
+                            {classData.status === 'Completed' && (
+                                <div className="absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-md text-xs font-bold shadow-xl pointer-events-none">
+                                    <Video className="w-3 h-3" />
+                                    <span>RECORDING</span>
+                                </div>
+                            )}
+
+                            {/* Video Logic */}
+                            {classData.status === 'Live' || classData.status === 'Completed' ? (
+                                <div className="absolute inset-0 group/player">
+                                    <CustomYouTubePlayer
+                                        ref={playerRef}
+                                        videoId={
+                                            (classData.status === 'Completed' && classData.recordings?.length > 0)
+                                                ? classData.recordings[0].youtubeVideoId
+                                                : (classData.streamInfo?.broadcastId ||
+                                                    classData.streamInfo?.liveUrl?.split('v=')[1]?.split('&')[0] ||
+                                                    classData.youtubeUrl?.split('v=')[1]?.split('&')[0])
+                                        }
+                                        autoplay={true}
+                                    />
+
+                                    {/* Jump to Live Button */}
+                                    {classData.status === 'Live' && (
+                                        <button
+                                            onClick={handleJumpToLive}
+                                            className="absolute bottom-16 right-4 z-40 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 opacity-0 group-hover/player:opacity-100 transition-opacity"
+                                        >
+                                            <Radio className="w-3 h-3" />
+                                            JUMP TO LIVE
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-black">
+                                    <div className="p-6 rounded-full bg-gray-800 mb-4">
+                                        <Video className="w-12 h-12 text-gray-600" />
+                                    </div>
+                                    <p className="text-xl font-bold text-gray-300 mb-2">
+                                        {classData.status === 'Scheduled' ? 'Waiting for Stream' : 'No Stream Available'}
+                                    </p>
+                                    <p className="text-gray-500">
+                                        {classData.status === 'Scheduled'
+                                            ? 'The teacher will start soon. Please wait...'
+                                            : 'This class does not have a stream.'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right Column - Chat/Comments (Matches Video Height on Desktop) */}
+                    <div className={`w-full lg:w-[350px] xl:w-[400px] flex flex-col border-l z-20 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                        }`}>
+                        {/* Force height to match parent (Video) on desktop, fixed height on mobile if needed or auto */}
+                        {/* On lg, flex row means stretch, so h-auto here fills height. But inner content needs to scroll. */}
+                        <div className="h-full relative min-h-[500px] lg:min-h-0">
+                            {classData.status === 'Completed' ? (
+                                <div className="absolute inset-0 flex flex-col">
+                                    <div className={`p-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 rounded-lg bg-violet-500/20">
+                                                <MessageCircle className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                                            </div>
+                                            <div>
+                                                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                                    Comments
+                                                </h3>
+                                                <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                                                    Discuss this class
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 overflow-hidden relative">
+                                        <CommentSection liveClassId={id} />
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="absolute inset-0 flex flex-col">
+                                    <ChatPanel liveClassId={id} />
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
 
-                {/* Chat Panel (Live) or Comments (VOD) */}
-                <div className="lg:col-span-1">
-                    {classData.status === 'Completed' ? (
-                        <div className={`${cardBg} border rounded-2xl shadow-xl overflow-hidden h-[600px] flex flex-col`}>
-                            <div className="p-4 border-b border-white/5 bg-white/5">
-                                <h3 className={`font-bold ${textPrimary} flex items-center gap-2`}>
-                                    Comments
-                                </h3>
-                            </div>
-                            <div className="flex-1 overflow-y-auto">
-                                <CommentSection liveClassId={id} />
+                {/* Content Section (Below Header) */}
+                <div className="p-4 lg:p-6 space-y-6 max-w-[1600px] mx-auto">
+
+                    {/* Header / Info Section */}
+                    <div className="space-y-4">
+                        {/* Title & Status */}
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                                <h1 className={`text-xl lg:text-2xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'
+                                    }`}>
+                                    {classData.subject}
+                                </h1>
+
+                                <div className="flex items-center gap-4 text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                                            {/* Initials */}
+                                            {classData.teacher?.name?.split(' ').map(n => n[0]).join('').substring(0, 2) || 'T'}
+                                        </div>
+                                        <div>
+                                            <p className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                                {classData.teacher?.name}
+                                            </p>
+                                            <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+                                                {classData.batch?.name || classData.batch}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className={`px-3 py-1 rounded-full text-xs font-bold border ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-600'}`}>
+                                        {classData.startTime} - {classData.endTime}
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    ) : (
-                        <div className="h-[600px] flex flex-col">
-                            <ChatPanel liveClassId={id} />
+
+                        {/* Description Expansion */}
+                        <div className={`p-4 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                            <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                                {classData.description || 'No description provided.'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Study Materials */}
+                    {notes.length > 0 && (
+                        <div className={`rounded-2xl shadow-sm border p-6 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                            }`}>
+                            <div className="flex items-center gap-3 mb-4">
+                                <BookOpen className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
+                                <h2 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                    Study Materials
+                                </h2>
+                            </div>
+
+                            <div className="space-y-2">
+                                {notes.map((note) => (
+                                    <div
+                                        key={note._id || note.id}
+                                        className={`flex items-center justify-between p-3 rounded-lg transition-all cursor-pointer ${isDark
+                                            ? 'bg-gray-700/30 hover:bg-gray-700/50'
+                                            : 'bg-gray-50 hover:bg-gray-100'
+                                            }`}
+                                        onClick={() => window.open(note.secureUrl || note.fileUrl, '_blank')}
+                                    >
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            <FileText className="w-4 h-4 text-gray-500" />
+                                            <span className={`text-sm font-medium truncate ${isDark ? 'text-gray-200' : 'text-gray-700'
+                                                }`}>
+                                                {note.title}
+                                            </span>
+                                        </div>
+                                        <Download className="w-4 h-4 text-gray-400 hover:text-gray-200" />
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
             </div>
-
-            {/* Notes Section */}
-            <section className="pt-4">
-                <div className="flex items-center gap-2 mb-6">
-                    <div className={`p-2 rounded-lg ${isDark ? 'bg-violet-500/20 text-violet-300' : 'bg-violet-100 text-violet-600'}`}>
-                        <BookOpen size={24} />
-                    </div>
-                    <div>
-                        <h2 className={`text-2xl font-bold ${textPrimary}`}>Study Materials</h2>
-                        <p className={textSecondary}>Resources for this class</p>
-                    </div>
-                </div>
-                <NotesList notes={notes} loading={false} />
-            </section>
         </div>
     );
 }

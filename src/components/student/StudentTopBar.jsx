@@ -1,77 +1,88 @@
-import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { Sun, Moon, LogOut, Bell, GraduationCap } from 'lucide-react';
+import { Sun, Moon, LogOut, Bell, Search } from 'lucide-react';
+import { useState } from 'react';
 
 export default function StudentTopBar() {
     const { user, logout } = useAuth();
     const { isDark, toggleTheme } = useTheme();
+    const [searchFocused, setSearchFocused] = useState(false);
 
-    const cardBg = isDark
-        ? 'bg-gray-900/60 backdrop-blur-xl border-white/10'
-        : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
-
-    const textPrimary = isDark ? 'text-white' : 'text-gray-900';
-    const textMuted = isDark ? 'text-gray-400' : 'text-gray-500';
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good Morning';
+        if (hour < 17) return 'Good Afternoon';
+        return 'Good Evening';
+    };
 
     return (
-        <header className={`h-20 ${cardBg} border-b z-40 sticky top-0 px-8 transition-all duration-200`}>
-            <div className="h-full max-w-7xl mx-auto flex items-center justify-between">
-                <Link to="/student" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                    <div className={`p-2 rounded-xl bg-gradient-to-br from-blue-600 to-cyan-600 text-white shadow-lg shadow-cyan-500/20`}>
-                        <GraduationCap size={24} />
-                    </div>
-                    <div>
-                        <h2 className={`text-lg font-bold ${textPrimary} leading-tight`}>
-                            Student Portal
+        <header className={`h-16 ${isDark ? 'bg-[#111118]/60' : 'bg-white/60'} backdrop-blur-xl border-b ${isDark ? 'border-white/5' : 'border-gray-200/50'} z-40 sticky top-0 px-6`}>
+            <div className="h-full flex items-center justify-between gap-6">
+                {/* Greeting & Search */}
+                <div className="flex-1 flex items-center gap-6">
+                    <div className="hidden lg:block">
+                        <h2 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                            {getGreeting()}, {user?.name?.split(' ')[0]} 👋
                         </h2>
-                        <p className={`text-xs ${textMuted} font-medium`}>Welcome back, {user?.name?.split(' ')[0]}</p>
+                        <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                            Ready to learn something new?
+                        </p>
                     </div>
-                </Link>
 
-                <div className="flex items-center gap-4">
-                    {/* Theme Toggle */}
+                    {/* Search */}
+                    <div className={`relative flex-1 max-w-sm transition-all ${searchFocused ? 'scale-[1.01]' : ''}`}>
+                        <div className={`flex items-center ${isDark ? 'bg-white/5 border-white/10' : 'bg-gray-100/80 border-gray-200/50'} border rounded-xl`}>
+                            <Search size={16} className={`ml-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                className={`w-full py-2 px-2 bg-transparent ${isDark ? 'text-white placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'} focus:outline-none text-sm`}
+                                onFocus={() => setSearchFocused(true)}
+                                onBlur={() => setSearchFocused(false)}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2">
                     <button
                         onClick={toggleTheme}
-                        className={`p-2.5 ${isDark ? 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900'} rounded-xl transition-all`}
-                        aria-label="Toggle theme"
+                        className={`p-2 rounded-xl transition-all ${isDark ? 'bg-white/5 hover:bg-white/10 text-gray-400' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
                     >
-                        {isDark ? <Sun size={20} /> : <Moon size={20} />}
+                        {isDark ? <Sun size={18} /> : <Moon size={18} />}
                     </button>
 
-                    {/* Notifications */}
-                    <button
-                        className={`p-2.5 ${isDark ? 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900'} rounded-xl transition-all relative`}
-                        aria-label="Notifications"
-                    >
-                        <Bell size={20} />
-                        <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-black"></span>
+                    <button className={`relative p-2 rounded-xl transition-all ${isDark ? 'bg-white/5 hover:bg-white/10 text-gray-400' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}>
+                        <Bell size={18} />
+                        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
                     </button>
 
-                    <div className={`h-8 w-px ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}></div>
+                    <div className={`h-6 w-px mx-1 ${isDark ? 'bg-white/10' : 'bg-gray-200'}`}></div>
 
-                    {/* User Info */}
-                    <div className="flex items-center gap-3 pl-2">
+                    {/* Profile */}
+                    <div className="flex items-center gap-2">
                         <div className="text-right hidden md:block">
-                            <p className={`text-sm font-bold ${textPrimary}`}>{user?.name}</p>
-                            <p className={`text-xs ${textMuted} font-medium`}>Student</p>
+                            <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>{user?.name}</p>
+                            <p className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Student</p>
                         </div>
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 p-0.5 shadow-lg shadow-cyan-500/20">
-                            <div className={`w-full h-full rounded-[10px] ${isDark ? 'bg-zinc-900' : 'bg-white'} flex items-center justify-center`}>
-                                <span className={`text-sm font-bold bg-gradient-to-br from-blue-500 to-cyan-600 bg-clip-text text-transparent`}>
-                                    {user?.name?.substring(0, 2).toUpperCase() || 'ST'}
-                                </span>
+                        <div className="relative">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 p-0.5">
+                                <div className={`w-full h-full rounded-md ${isDark ? 'bg-[#111118]' : 'bg-white'} flex items-center justify-center`}>
+                                    <span className="text-xs font-bold bg-gradient-to-br from-blue-500 to-violet-500 bg-clip-text text-transparent">
+                                        {user?.name?.substring(0, 2).toUpperCase() || 'ST'}
+                                    </span>
+                                </div>
                             </div>
+                            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-[#111118]"></div>
                         </div>
                     </div>
 
-                    {/* Logout */}
                     <button
                         onClick={logout}
-                        className={`p-2.5 ${isDark ? 'hover:bg-red-500/20 text-gray-400 hover:text-red-400' : 'hover:bg-red-50 text-gray-500 hover:text-red-600'} rounded-xl transition-all`}
-                        title="Logout"
+                        className={`p-2 rounded-xl transition-all ${isDark ? 'hover:bg-red-500/20 text-gray-400 hover:text-red-400' : 'hover:bg-red-50 text-gray-500 hover:text-red-600'}`}
                     >
-                        <LogOut size={20} />
+                        <LogOut size={18} />
                     </button>
                 </div>
             </div>

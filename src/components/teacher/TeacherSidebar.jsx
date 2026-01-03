@@ -1,68 +1,72 @@
 import { NavLink } from 'react-router-dom';
-import { BookOpen, Calendar, FileText, Sun, Moon } from 'lucide-react';
+import { BookOpen, Calendar, FileText, GraduationCap } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function TeacherSidebar() {
-    const { isDark, toggleTheme } = useTheme();
+    const { isDark } = useTheme();
 
-    const textPrimary = isDark ? 'text-white' : 'text-gray-900';
-    const textMuted = isDark ? 'text-gray-400' : 'text-gray-600';
-    const sidebarBg = isDark
-        ? 'bg-gray-900/60 backdrop-blur-xl border-white/10'
-        : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
-
-    const navItems = [
-        { path: '/teacher/dashboard', label: 'Dashboard', icon: BookOpen },
-        { path: '/teacher/timetable', label: 'Timetable', icon: Calendar },
-        { path: '/teacher/notes', label: 'My Notes', icon: FileText },
+    const menuItems = [
+        { path: '/teacher/dashboard', label: 'Dashboard', icon: BookOpen, gradient: 'from-blue-500 to-cyan-500' },
+        { path: '/teacher/timetable', label: 'Timetable', icon: Calendar, gradient: 'from-violet-500 to-purple-500' },
+        { path: '/teacher/notes', label: 'My Notes', icon: FileText, gradient: 'from-rose-500 to-pink-500' },
     ];
 
     return (
-        <aside className={`fixed left-0 top-0 h-screen w-64 ${sidebarBg} border-r shadow-2xl flex flex-col z-10`}>
-            <div className="p-6 border-b border-white/10">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shrink-0">
-                        <BookOpen className="text-white" size={20} />
+        <div className={`fixed left-0 top-0 bottom-0 w-64 ${isDark ? 'bg-[#111118]/80' : 'bg-white/70'} backdrop-blur-xl border-r ${isDark ? 'border-white/5' : 'border-gray-200/50'} flex flex-col z-20`}>
+            {/* Logo */}
+            <div className={`p-5 border-b ${isDark ? 'border-white/5' : 'border-gray-200/50'}`}>
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 via-violet-600 to-cyan-600 flex items-center justify-center shadow-lg">
+                        <GraduationCap className="text-white" size={18} />
                     </div>
-                    <div className="overflow-hidden">
-                        <h1 className={`text-2xl font-bold ${textPrimary}`}>TeachFlow</h1>
-                        <p className={`text-xs ${textMuted}`}>Teacher Panel</p>
+                    <div>
+                        <h1 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>TeachFlow</h1>
+                        <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Teacher Panel</p>
                     </div>
                 </div>
             </div>
 
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                {navItems.map((item) => {
+            {/* Navigation */}
+            <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+                <p className={`text-[10px] font-semibold uppercase tracking-wider px-3 mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Menu
+                </p>
+                {menuItems.map((item) => {
                     const Icon = item.icon;
                     return (
                         <NavLink
                             key={item.path}
                             to={item.path}
-                            className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all group ${isActive
-                                ? `bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-purple-500/50`
-                                : `${textPrimary} hover:bg-white/10`
-                                }`}
+                            className={({ isActive }) =>
+                                `relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${isActive
+                                    ? ''
+                                    : `${isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/50'}`
+                                }`
+                            }
                         >
                             {({ isActive }) => (
                                 <>
-                                    <Icon size={20} className={`shrink-0 ${isActive ? '' : 'group-hover:scale-110 transition-transform'}`} />
-                                    <span className="font-medium">{item.label}</span>
+                                    {isActive && (
+                                        <>
+                                            <div className={`absolute inset-0 bg-gradient-to-r ${item.gradient} rounded-xl opacity-10`}></div>
+                                            <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b ${item.gradient} rounded-r-full`}></div>
+                                        </>
+                                    )}
+                                    <div className={`relative p-2 rounded-lg transition-all ${isActive
+                                        ? `bg-gradient-to-br ${item.gradient} shadow-md`
+                                        : `${isDark ? 'bg-white/5' : 'bg-gray-100'}`
+                                        }`}>
+                                        <Icon size={16} className={isActive ? 'text-white' : ''} />
+                                    </div>
+                                    <span className={`text-sm font-medium ${isActive ? (isDark ? 'text-white' : 'text-gray-900') : ''}`}>
+                                        {item.label}
+                                    </span>
                                 </>
                             )}
                         </NavLink>
                     );
                 })}
             </nav>
-
-            <div className="p-4 border-t border-white/10">
-                <button
-                    onClick={toggleTheme}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${textPrimary} hover:bg-white/10 transition-all group`}
-                >
-                    {isDark ? <Sun size={20} className="group-hover:rotate-180 transition-transform duration-500 shrink-0" /> : <Moon size={20} className="group-hover:-rotate-12 transition-transform shrink-0" />}
-                    <span className="font-medium">{isDark ? 'Light Mode' : 'Dark Mode'}</span>
-                </button>
-            </div>
-        </aside>
+        </div>
     );
 }

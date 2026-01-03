@@ -1,76 +1,83 @@
 import { useNavigate } from 'react-router-dom';
 import StatusBadge from '../../components/teacher/StatusBadge';
 import { useTheme } from '../../context/ThemeContext';
-import { Clock, User } from 'lucide-react';
+import { Clock, User, Play, Video, ArrowRight } from 'lucide-react';
 
 export default function ClassCard({ classData }) {
     const navigate = useNavigate();
     const { isDark } = useTheme();
     const { _id, subject, teacher, startTime, endTime, liveClassId } = classData;
 
-    // Determine actual status from liveClass or classData itself
     const status = classData.status || classData.liveClass?.status || 'Scheduled';
 
-    const textPrimary = isDark ? 'text-white' : 'text-gray-900';
-    const textSecondary = isDark ? 'text-gray-400' : 'text-gray-600';
-    const cardBg = isDark
-        ? 'bg-gray-900 border-white/10 hover:bg-gray-800'
-        : 'bg-white border-gray-200 hover:shadow-lg';
-    const borderColor = isDark ? 'border-white/10' : 'border-gray-200';
-
     const handleJoinClass = () => {
-        // liveClassId is populated as an object from the backend
         const targetId = typeof liveClassId === 'object' ? liveClassId?._id : liveClassId;
-
         if (targetId && (status === 'Live' || status === 'Scheduled' || status === 'Completed')) {
             navigate(`/student/class/${targetId}`);
         }
     };
 
-    const getButtonText = () => {
-        if (status === 'Cancelled') return 'Class Cancelled';
-        if (status === 'Live') return 'Join Live Class';
-        if (status === 'Completed') return 'Watch Recording';
-        return 'Join Class';
+    const getButtonConfig = () => {
+        if (status === 'Cancelled') return { text: 'Cancelled', icon: null, gradient: 'from-gray-400 to-gray-500', disabled: true };
+        if (status === 'Live') return { text: 'Join Live', icon: Play, gradient: 'from-rose-500 to-red-600', pulse: true };
+        if (status === 'Completed') return { text: 'Watch', icon: Video, gradient: 'from-violet-500 to-purple-600' };
+        return { text: 'Join', icon: ArrowRight, gradient: 'from-blue-500 to-cyan-600' };
     };
 
-    const getButtonStyles = () => {
-        if (status === 'Cancelled') return `bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-white/5 dark:text-gray-600 shadow-none`;
-        if (status === 'Live') return `bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-500/30 hover:scale-[1.02] active:scale-[0.98] animate-pulse`;
-        return `bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:shadow-cyan-500/30 hover:scale-[1.02] active:scale-[0.98]`;
-    };
-
+    const buttonConfig = getButtonConfig();
     const isDisabled = status === 'Cancelled' || !liveClassId;
+    const ButtonIcon = buttonConfig.icon;
 
     return (
-        <div className={`${cardBg} border ${borderColor} p-6 rounded-2xl transition-all duration-300 group`}>
-            <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-xl ${isDark ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
-                        <User size={20} />
+        <div className={`group relative overflow-hidden rounded-2xl transition-all duration-300 hover:scale-[1.02] ${isDark ? 'bg-[#16161d] hover:shadow-lg hover:shadow-blue-500/10' : 'bg-white hover:shadow-xl'} border ${isDark ? 'border-white/5' : 'border-gray-200/50'}`}>
+            {status === 'Live' && (
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-rose-500 to-red-500 animate-pulse"></div>
+            )}
+
+            <div className="p-4">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start gap-3">
+                        <div className={`p-2 rounded-xl transition-all ${status === 'Live'
+                            ? 'bg-gradient-to-br from-rose-500 to-red-600'
+                            : isDark ? 'bg-blue-600/10' : 'bg-blue-50'
+                            }`}>
+                            <User size={16} className={status === 'Live' ? 'text-white' : (isDark ? 'text-blue-400' : 'text-blue-600')} />
+                        </div>
+                        <div>
+                            <h3 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} leading-tight`}>{subject}</h3>
+                            <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                                {teacher?.name || teacher || 'Not assigned'}
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h3 className={`text-lg font-bold ${textPrimary} leading-tight`}>{subject}</h3>
-                        <p className={`text-sm ${textSecondary} mt-0.5`}>
-                            {teacher?.name || teacher || 'Not assigned'}
-                        </p>
-                    </div>
+                    <StatusBadge status={status} />
                 </div>
-                <StatusBadge status={status} />
-            </div>
 
-            <div className={`flex items-center gap-2 text-sm ${textSecondary} mb-6 bg-gray-50 dark:bg-white/5 p-3 rounded-xl`}>
-                <Clock size={16} className={isDark ? 'text-blue-400' : 'text-blue-600'} />
-                <span className="font-medium">{startTime} - {endTime}</span>
-            </div>
+                {/* Time */}
+                <div className={`flex items-center gap-2 mb-4 p-2.5 rounded-xl ${isDark ? 'bg-white/5' : 'bg-gray-50'}`}>
+                    <Clock size={14} className={isDark ? 'text-blue-400' : 'text-blue-600'} />
+                    <span className={`text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                        {startTime} - {endTime}
+                    </span>
+                </div>
 
-            <button
-                onClick={handleJoinClass}
-                disabled={isDisabled}
-                className={`w-full py-3 px-4 rounded-xl font-bold transition-all shadow-lg flex items-center justify-center gap-2 ${getButtonStyles()} disabled:opacity-50 disabled:cursor-not-allowed`}
-            >
-                {getButtonText()}
-            </button>
+                {/* Button */}
+                <button
+                    onClick={handleJoinClass}
+                    disabled={isDisabled}
+                    className={`w-full py-2.5 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2
+                        ${isDisabled
+                            ? `${isDark ? 'bg-white/5 text-gray-500' : 'bg-gray-100 text-gray-400'} cursor-not-allowed`
+                            : `bg-gradient-to-r ${buttonConfig.gradient} text-white hover:shadow-lg active:scale-[0.98]`
+                        }
+                        ${buttonConfig.pulse ? 'animate-pulse' : ''}
+                    `}
+                >
+                    {ButtonIcon && <ButtonIcon size={16} />}
+                    <span>{buttonConfig.text}</span>
+                </button>
+            </div>
         </div>
     );
 }

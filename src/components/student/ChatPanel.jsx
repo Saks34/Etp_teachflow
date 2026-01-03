@@ -73,12 +73,12 @@ export default function ChatPanel({ liveClassId }) {
 
         socket.on('chat-history', (payload) => {
             if (payload && payload.messages) {
-                setMessages(payload.messages.filter(m => !(m.type === 'system' && m.text === 'user-joined')));
+                setMessages(payload.messages.filter(m => !(m.type === 'system' && (m.text === 'user-joined' || m.text === 'user-left'))));
             }
         });
 
         socket.on('system', (evt) => {
-            if (evt.type === 'user-joined') return;
+            if (evt.type === 'user-joined' || evt.type === 'user-left') return;
             setMessages((prev) => [...prev, { ...evt, type: 'system' }]);
 
             if (evt.type === 'muted' && evt.targetUserId === user._id) {
@@ -150,12 +150,12 @@ export default function ChatPanel({ liveClassId }) {
 
     const emojis = ['😊', '👍', '❤️', '🎉', '👏', '🔥', '💯', '✅', '🤔', '📚', '✏️', '💡'];
 
-    const filteredMessages = searchQuery
+    const filteredMessages = (searchQuery
         ? messages.filter(m =>
             m.text?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (m.senderName && m.senderName.toLowerCase().includes(searchQuery.toLowerCase()))
         )
-        : messages;
+        : messages).filter(m => !(m.type === 'system' && (m.text === 'user-joined' || m.text === 'user-left')));
 
     const pinnedMessages = messages.filter(m => m.isPinned);
 
@@ -187,69 +187,12 @@ export default function ChatPanel({ liveClassId }) {
                                         </>
                                     )}
                                 </div>
-                                {/* 
-                <div className="flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-gray-400" />
-                  <span className={isDark ? 'text-gray-400' : 'text-gray-600'}>{onlineCount} online</span>
-                </div>
-                */}
                             </div>
                         </div>
                     </div>
-
-                    {/* Quick Actions */}
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setShowSearch(!showSearch)}
-                            className={`p-2 rounded-lg transition-all ${showSearch
-                                ? 'bg-violet-600 text-white'
-                                : isDark
-                                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                }`}
-                            title="Search messages"
-                        >
-                            <Search className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={() => setSoundEnabled(!soundEnabled)}
-                            className={`p-2 rounded-lg transition-all ${isDark
-                                ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                }`}
-                            title={soundEnabled ? 'Mute notifications' : 'Unmute notifications'}
-                        >
-                            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                        </button>
-                    </div>
                 </div>
 
-                {/* Search Bar */}
-                {showSearch && (
-                    <div className="relative animate-in slide-in-from-top-2">
-                        <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${isDark ? 'text-gray-500' : 'text-gray-400'
-                            }`} />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search messages..."
-                            className={`w-full pl-10 pr-10 py-2 rounded-lg text-sm outline-none transition-all ${isDark
-                                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-violet-500'
-                                : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-violet-500'
-                                } border`}
-                        />
-                        {searchQuery && (
-                            <button
-                                onClick={() => setSearchQuery('')}
-                                className={`absolute right-3 top-1/2 -translate-y-1/2 ${isDark ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
-                                    }`}
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
-                        )}
-                    </div>
-                )}
+
 
                 {/* Pinned Messages */}
                 {pinnedMessages.length > 0 && (

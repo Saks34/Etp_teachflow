@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import YouTube from 'react-youtube';
-import { Play, Pause, Volume2, VolumeX, Maximize, Minimize } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, Radio } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-export default function CustomYouTubePlayer({ videoId, autoplay = false }) {
+const CustomYouTubePlayer = forwardRef(({ videoId, autoplay = false }, ref) => {
     const [player, setPlayer] = useState(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
@@ -55,6 +55,19 @@ export default function CustomYouTubePlayer({ videoId, autoplay = false }) {
             setIsEnded(false);
         }
     };
+
+    useImperativeHandle(ref, () => ({
+        seekToLive: () => {
+            if (player && typeof player.getDuration === 'function') {
+                const duration = player.getDuration();
+                // Seek to almost the end (live edge)
+                player.seekTo(duration, true);
+                player.playVideo();
+                setIsPlaying(true);
+                setIsEnded(false);
+            }
+        }
+    }));
 
     // Update progress
     useEffect(() => {
@@ -139,8 +152,8 @@ export default function CustomYouTubePlayer({ videoId, autoplay = false }) {
             {/* The YouTube Iframe */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-center">
                 {/* 
-                    Scale up to 150% to aggressively crop out YouTube UI elements (Title, Share, Related Videos rail).
-                */}
+                        Scale up to 150% to aggressively crop out YouTube UI elements (Title, Share, Related Videos rail).
+                    */}
                 <div className="w-full h-full flex-shrink-0">
                     <YouTube
                         videoId={videoId}
@@ -238,4 +251,6 @@ export default function CustomYouTubePlayer({ videoId, autoplay = false }) {
             </div>
         </div>
     );
-}
+});
+
+export default CustomYouTubePlayer;

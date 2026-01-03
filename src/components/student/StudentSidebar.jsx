@@ -1,39 +1,38 @@
 import { NavLink } from 'react-router-dom';
-import { BookOpen, Home, Calendar, FileText, Sun, Moon } from 'lucide-react';
+import { BookOpen, Home, Calendar, FileText, GraduationCap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function StudentSidebar() {
     const { user } = useAuth();
-    const { isDark, toggleTheme } = useTheme();
-
-    const textPrimary = isDark ? 'text-white' : 'text-gray-900';
-    const textMuted = isDark ? 'text-gray-400' : 'text-gray-600';
-    const sidebarBg = isDark
-        ? 'bg-gray-900/60 backdrop-blur-xl border-white/10'
-        : 'bg-white/60 backdrop-blur-xl border-gray-200/50';
+    const { isDark } = useTheme();
 
     const menuItems = [
-        { to: '/student/dashboard', icon: Home, label: 'Dashboard' },
-        { to: '/student/timetable', icon: Calendar, label: 'Timetable' },
-        { to: '/student/notes', icon: FileText, label: 'Notes' },
+        { to: '/student/dashboard', icon: Home, label: 'Dashboard', gradient: 'from-blue-500 to-cyan-500' },
+        { to: '/student/timetable', icon: Calendar, label: 'Timetable', gradient: 'from-violet-500 to-purple-500' },
+        { to: '/student/notes', icon: FileText, label: 'Notes', gradient: 'from-rose-500 to-pink-500' },
     ];
 
     return (
-        <div className={`w-64 ${sidebarBg} border-r shadow-2xl flex flex-col z-10`}>
-            <div className="p-6 border-b border-white/10">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shrink-0">
-                        <BookOpen className="text-white" size={20} />
+        <div className={`fixed left-0 top-0 bottom-0 w-64 ${isDark ? 'bg-[#111118]/80' : 'bg-white/70'} backdrop-blur-xl border-r ${isDark ? 'border-white/5' : 'border-gray-200/50'} flex flex-col z-20`}>
+            {/* Logo */}
+            <div className={`p-5 border-b ${isDark ? 'border-white/5' : 'border-gray-200/50'}`}>
+                <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-600 via-violet-600 to-cyan-600 flex items-center justify-center shadow-lg">
+                        <GraduationCap className="text-white" size={18} />
                     </div>
-                    <div className="overflow-hidden">
-                        <h1 className={`text-2xl font-bold ${textPrimary}`}>TeachFlow</h1>
-                        <p className={`text-xs ${textMuted}`}>Student Portal</p>
+                    <div>
+                        <h1 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>TeachFlow</h1>
+                        <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Student Portal</p>
                     </div>
                 </div>
             </div>
 
-            <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+            {/* Navigation */}
+            <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+                <p className={`text-[10px] font-semibold uppercase tracking-wider px-3 mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Menu
+                </p>
                 {menuItems.map((item) => {
                     const Icon = item.icon;
                     return (
@@ -41,16 +40,29 @@ export default function StudentSidebar() {
                             key={item.to}
                             to={item.to}
                             className={({ isActive }) =>
-                                `flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all group ${isActive
-                                    ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-purple-500/50'
-                                    : `${textPrimary} hover:bg-white/10`
+                                `relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 ${isActive
+                                    ? ''
+                                    : `${isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100/50'}`
                                 }`
                             }
                         >
                             {({ isActive }) => (
                                 <>
-                                    <Icon size={20} className={`shrink-0 ${isActive ? '' : 'group-hover:scale-110 transition-transform'}`} />
-                                    <span className="font-medium">{item.label}</span>
+                                    {isActive && (
+                                        <>
+                                            <div className={`absolute inset-0 bg-gradient-to-r ${item.gradient} rounded-xl opacity-10`}></div>
+                                            <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-gradient-to-b ${item.gradient} rounded-r-full`}></div>
+                                        </>
+                                    )}
+                                    <div className={`relative p-2 rounded-lg transition-all ${isActive
+                                        ? `bg-gradient-to-br ${item.gradient} shadow-md`
+                                        : `${isDark ? 'bg-white/5' : 'bg-gray-100'}`
+                                        }`}>
+                                        <Icon size={16} className={isActive ? 'text-white' : ''} />
+                                    </div>
+                                    <span className={`text-sm font-medium ${isActive ? (isDark ? 'text-white' : 'text-gray-900') : ''}`}>
+                                        {item.label}
+                                    </span>
                                 </>
                             )}
                         </NavLink>
@@ -58,26 +70,22 @@ export default function StudentSidebar() {
                 })}
             </nav>
 
+            {/* Batch Info */}
             {user?.batch && (
-                <div className="p-4 border-t border-white/10">
-                    <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-                        Your Batch
-                    </p>
-                    <p className={`text-sm font-medium ${textPrimary}`}>
-                        {user.batch.name || user.batch}
-                    </p>
+                <div className="p-3">
+                    <div className={`p-3 rounded-xl ${isDark ? 'bg-blue-600/10 border border-blue-500/20' : 'bg-blue-50 border border-blue-100'}`}>
+                        <div className="flex items-center gap-2">
+                            <BookOpen size={14} className={isDark ? 'text-blue-400' : 'text-blue-600'} />
+                            <div>
+                                <p className={`text-[10px] uppercase tracking-wide ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Batch</p>
+                                <p className={`text-sm font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                    {user.batch.name || user.batch}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
-
-            <div className="p-4 border-t border-white/10">
-                <button
-                    onClick={toggleTheme}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl ${textPrimary} hover:bg-white/10 transition-all group`}
-                >
-                    {isDark ? <Sun size={20} className="group-hover:rotate-180 transition-transform duration-500 shrink-0" /> : <Moon size={20} className="group-hover:-rotate-12 transition-transform shrink-0" />}
-                    <span className="font-medium">{isDark ? 'Light Mode' : 'Dark Mode'}</span>
-                </button>
-            </div>
         </div>
     );
 }
