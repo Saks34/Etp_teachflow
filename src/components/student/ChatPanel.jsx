@@ -2,46 +2,49 @@ import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { API_BASE } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
 import {
     Send,
     MessageCircle,
-    Users,
     Smile,
     X,
     Pin,
     AlertCircle,
     Wifi,
     WifiOff,
-    Volume2,
     VolumeX,
     Clock,
     CheckCheck,
-    Search
+    Ban
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function ChatPanel({ liveClassId }) {
-    const { isDark } = useTheme();
+    // Hardcoded Dark Theme for consistency with Teacher Panel ("YouTube Studio" style)
+    const isDark = true;
     const { user } = useAuth();
+
+    // State
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [connected, setConnected] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [showSearch, setShowSearch] = useState(false);
-    const [onlineCount, setOnlineCount] = useState(0);
-    const [soundEnabled, setSoundEnabled] = useState(true);
+    const [showTopChat, setShowTopChat] = useState(false);
+
+    // Moderation State
+    const [slowMode, setSlowMode] = useState(0); // seconds
+    const [chatPaused, setChatPaused] = useState(false);
+    const [lastMessageTime, setLastMessageTime] = useState(0);
 
     const messagesEndRef = useRef(null);
     const socketRef = useRef(null);
 
     const token = localStorage.getItem('accessToken');
 
+    // Socket Connection
     useEffect(() => {
         if (!liveClassId || !token) return;
 
-        // Connect to the Live Classes namespace
         const socket = io(`${API_BASE}/live-classes`, {
             auth: { token },
         });
@@ -49,7 +52,6 @@ export default function ChatPanel({ liveClassId }) {
 
         socket.on('connect', () => {
             setConnected(true);
-
             const batchId = user?.batch?._id || user?.batch;
 
             socket.emit('join-room', {
@@ -68,32 +70,69 @@ export default function ChatPanel({ liveClassId }) {
         });
 
         socket.on('message', (msg) => {
-            setMessages((prev) => [...prev, msg]);
+            if (msg.liveClassId === liveClassId) {
+                setMessages((prev) => [...prev, msg]);
+            }
         });
 
         socket.on('chat-history', (payload) => {
             if (payload && payload.messages) {
-                setMessages(payload.messages.filter(m => !(m.type === 'system' && (m.text === 'user-joined' || m.text === 'user-left'))));
+                // Filter out join/leave messages as per request
+                const filtered = payload.messages.filter(m => !(m.type === 'system' && (m.text === 'user-joined' || m.text === 'user-left')));
+                setMessages(filtered);
+
+                // Sync moderation state
+                if (payload.slowMode !== undefined) setSlowMode(payload.slowMode);
+                if (payload.chatPaused !== undefined) setChatPaused(payload.chatPaused);
             }
+        });
+
+        // Real-time Moderation Events
+        socket.on('slow-mode-updated', ({ slowMode }) => {
+            setSlowMode(slowMode);
+            toast(slowMode > 0 ? `Slow mode: ${slowMode}s` : 'Slow mode disabled');
+        });
+
+        socket.on('chat-pause-updated', ({ paused }) => {
+            setChatPaused(paused);
+            toast(paused ? 'Chat paused by moderator' : 'Chat resumed');
+        });
+
+        socket.on('message-pinned', ({ messageId, isPinned }) => {
+            setMessages(prev => prev.map(m => (m.id === messageId || m._id === messageId) ? { ...m, isPinned } : m));
+        });
+
+        socket.on('message-deleted', ({ messageId }) => {
+            setMessages(prev => prev.filter(m => m.id !== messageId && m._id !== messageId));
         });
 
         socket.on('system', (evt) => {
+            if (evt.liveClassId !== liveClassId) return;
             if (evt.type === 'user-joined' || evt.type === 'user-left') return;
-            setMessages((prev) => [...prev, { ...evt, type: 'system' }]);
 
+            // Handle Mut/Unmute
             if (evt.type === 'muted' && evt.targetUserId === user._id) {
                 setIsMuted(true);
+                toast.error('You have been muted');
             }
             if (evt.type === 'unmuted' && evt.targetUserId === user._id) {
                 setIsMuted(false);
+                toast.success('You have been unmuted');
             }
             if (evt.type === 'chat-cleared') {
-                setMessages((prev) => [...prev, { type: 'system', text: 'Chat history cleared by moderator' }]);
+                setMessages([]);
+                toast('Chat history cleared');
+            }
+            if (evt.type === 'class-ended') {
+                setChatPaused(true);
+                toast('Class ended');
+            }
+
+            // Show relevant system messages
+            if (['chat-cleared', 'class-ended'].includes(evt.type)) {
+                setMessages((prev) => [...prev, { ...evt, role: 'system', type: 'system', text: evt.text || evt.type }]);
             }
         });
-
-        // Mock listener for participant count if available in future
-        // socket.on('room-users', ({ count }) => setOnlineCount(count));
 
         return () => {
             if (socket) {
@@ -102,36 +141,59 @@ export default function ChatPanel({ liveClassId }) {
                 socket.off('message');
                 socket.off('chat-history');
                 socket.off('system');
+                socket.off('slow-mode-updated');
+                socket.off('chat-pause-updated');
                 socket.emit('leave-room', { liveClassId });
                 socket.disconnect();
             }
         };
     }, [liveClassId, token, user]);
 
+    // Auto-scroll
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+    }, [messages, showTopChat]);
 
     const handleSendMessage = (e) => {
-        e.preventDefault();
-        if (!newMessage.trim() || !socketRef.current || isMuted) return;
+        e?.preventDefault();
+        const trimmed = newMessage.trim();
 
-        const batchId = user?.batch?._id || user?.batch; // Ensure compatibility
+        if (!trimmed || !socketRef.current || isMuted) return;
+
+        // Chat Pause Check
+        if (chatPaused) {
+            toast.error('Chat is currently paused');
+            return;
+        }
+
+        // Slow Mode Check
+        const now = Date.now();
+        if (slowMode > 0) {
+            const timeSinceLast = (now - lastMessageTime) / 1000;
+            if (timeSinceLast < slowMode) {
+                const waitTime = Math.ceil(slowMode - timeSinceLast);
+                toast.error(`Slow mode: wait ${waitTime}s`);
+                return;
+            }
+        }
+
+        const batchId = user?.batch?._id || user?.batch;
 
         socketRef.current.emit('send-message', {
             liveClassId,
-            text: newMessage.trim(),
+            text: trimmed,
             batchId
         }, (ack) => {
             if (!ack?.ok) {
                 console.error('Failed to send message:', ack?.error);
                 if (ack?.error.includes('Muted')) {
                     setIsMuted(true);
-                    alert('You have been muted by a moderator.');
+                    toast.error('You have been muted by a moderator.');
                 }
             } else {
                 setNewMessage('');
                 setShowEmojiPicker(false);
+                setLastMessageTime(Date.now());
             }
         });
     };
@@ -139,7 +201,7 @@ export default function ChatPanel({ liveClassId }) {
     const handleKeyPress = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSendMessage(e);
+            handleSendMessage();
         }
     };
 
@@ -150,162 +212,133 @@ export default function ChatPanel({ liveClassId }) {
 
     const emojis = ['😊', '👍', '❤️', '🎉', '👏', '🔥', '💯', '✅', '🤔', '📚', '✏️', '💡'];
 
-    const filteredMessages = (searchQuery
-        ? messages.filter(m =>
-            m.text?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (m.senderName && m.senderName.toLowerCase().includes(searchQuery.toLowerCase()))
-        )
-        : messages).filter(m => !(m.type === 'system' && (m.text === 'user-joined' || m.text === 'user-left')));
-
-    const pinnedMessages = messages.filter(m => m.isPinned);
+    const displayedMessages = showTopChat
+        ? messages.filter(m => m.isPinned || m.role === 'Teacher' || m.role === 'teacher')
+        : messages;
 
     return (
-        <div className={`flex flex-col h-full rounded-2xl shadow-xl border transition-colors ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-            }`}>
+        <div className="flex flex-col h-full rounded bg-[#212121] border border-[#303030]">
             {/* Header */}
-            <div className={`px-6 py-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600">
-                            <MessageCircle className="w-5 h-5 text-white" />
+            <div className="px-4 py-3 border-b border-[#303030]">
+                <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium text-white flex items-center gap-2">
+                        Live chat
+                        {!connected && <span className="text-[10px] text-red-500">(Connecting...)</span>}
+                    </h3>
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#0f0f0f] border border-[#303030]">
+                            {connected ? (
+                                <Wifi className="w-3 h-3 text-green-500" />
+                            ) : (
+                                <WifiOff className="w-3 h-3 text-red-500" />
+                            )}
                         </div>
-                        <div>
-                            <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                Live Chat
-                            </h3>
-                            <div className="flex items-center gap-3 text-xs">
-                                <div className="flex items-center gap-1.5">
-                                    {connected ? (
-                                        <>
-                                            <Wifi className="w-3.5 h-3.5 text-green-500" />
-                                            <span className={isDark ? 'text-green-400' : 'text-green-600'}>Connected</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <WifiOff className="w-3.5 h-3.5 text-red-500" />
-                                            <span className={isDark ? 'text-red-400' : 'text-red-600'}>Disconnected</span>
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                        <button
+                            onClick={() => setShowTopChat(!showTopChat)}
+                            className={`text-xs px-2 py-1 rounded font-medium transition ${showTopChat
+                                ? 'bg-[#3ea6ff] text-black'
+                                : 'text-gray-400 hover:text-white'
+                                }`}
+                        >
+                            {showTopChat ? 'Show all' : 'Top chat'}
+                        </button>
                     </div>
                 </div>
 
-
-
-                {/* Pinned Messages */}
-                {pinnedMessages.length > 0 && (
-                    <div className={`mt-3 p-3 rounded-lg border ${isDark ? 'bg-violet-900/20 border-violet-800' : 'bg-violet-50 border-violet-200'
-                        }`}>
-                        <div className="flex items-start gap-2">
-                            <Pin className={`w-4 h-4 mt-0.5 flex-shrink-0 ${isDark ? 'text-violet-400' : 'text-violet-600'
-                                }`} />
-                            <div className="flex-1 min-w-0">
-                                <p className={`text-xs font-semibold mb-1 ${isDark ? 'text-violet-300' : 'text-violet-700'
-                                    }`}>
-                                    Pinned by Teacher
-                                </p>
-                                <p className={`text-sm ${isDark ? 'text-violet-200' : 'text-violet-800'}`}>
-                                    {pinnedMessages[0].text}
-                                </p>
+                {/* Status Banners */}
+                <div className="space-y-1">
+                    {/* Pinned Messages */}
+                    {messages.filter(m => m.isPinned).length > 0 && (
+                        <div className="p-2 rounded bg-[#263850] border border-blue-900/50 mb-1">
+                            <div className="flex items-start gap-2">
+                                <Pin className="w-3 h-3 mt-0.5 flex-shrink-0 text-[#3ea6ff]" />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] font-semibold text-[#3ea6ff] mb-0.5">
+                                        Pinned by Teacher
+                                    </p>
+                                    <p className="text-xs text-white line-clamp-2">
+                                        {messages.filter(m => m.isPinned)[0].text}
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {/* Status Messages */}
-                {isMuted && (
-                    <div className={`mt-3 flex items-center gap-2 px-3 py-2 rounded-lg border ${isDark ? 'bg-red-900/20 border-red-800' : 'bg-red-50 border-red-200'
-                        }`}>
-                        <VolumeX className={`w-4 h-4 ${isDark ? 'text-red-400' : 'text-red-600'}`} />
-                        <span className={`text-xs ${isDark ? 'text-red-300' : 'text-red-700'}`}>
-                            You have been muted by the teacher
-                        </span>
-                    </div>
-                )}
+                    {slowMode > 0 && (
+                        <div className="text-xs px-2 py-1.5 rounded bg-yellow-900/20 text-yellow-400 flex items-center gap-2">
+                            <Clock className="w-3 h-3" />
+                            Slow mode: {slowMode} sec limit
+                        </div>
+                    )}
+                    {chatPaused && (
+                        <div className="text-xs px-2 py-1.5 rounded bg-red-900/20 text-red-400 flex items-center gap-2">
+                            <Ban className="w-3 h-3" />
+                            Chat is paused
+                        </div>
+                    )}
+                    {isMuted && (
+                        <div className="text-xs px-2 py-1.5 rounded bg-red-900/20 text-red-400 flex items-center gap-2">
+                            <VolumeX className="w-3 h-3" />
+                            You have been muted
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-                <div className="space-y-3">
-                    {filteredMessages.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center py-12">
-                            <MessageCircle className={`w-16 h-16 mb-4 ${isDark ? 'text-gray-600' : 'text-gray-300'
-                                }`} />
-                            <p className={`text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-600'
-                                }`}>
-                                {searchQuery ? 'No messages found' : 'No messages yet'}
-                            </p>
-                            <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                                {searchQuery ? 'Try a different search term' : 'Be the first to say hello! 👋'}
-                            </p>
+            <div className="flex-1 overflow-y-auto px-3 py-2 bg-[#1f1f1f]">
+                <div className="space-y-1">
+                    {displayedMessages.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center py-12 text-gray-500">
+                            <MessageCircle className="w-10 h-10 mb-2 opacity-50" />
+                            <p className="text-xs">Welcome to live chat!</p>
                         </div>
                     ) : (
-                        filteredMessages.map((msg, idx) => {
+                        displayedMessages.map((msg, idx) => {
                             if (msg.type === 'system') {
                                 return (
-                                    <div key={msg.id || idx} className={`flex items-center gap-3 py-2 ${isDark ? 'text-gray-500' : 'text-gray-400'
-                                        }`}>
-                                        <div className={`flex-1 h-px ${isDark ? 'bg-gray-700' : 'bg-gray-300'}`}></div>
+                                    <div key={msg.id || idx} className="flex items-center gap-3 py-2 text-gray-500">
+                                        <div className="flex-1 h-px bg-[#303030]"></div>
                                         <span className="text-xs italic flex items-center gap-1.5">
                                             <AlertCircle className="w-3 h-3" />
                                             {msg.text || msg.type}
                                         </span>
-                                        <div className={`flex-1 h-px ${isDark ? 'bg-gray-700' : 'bg-gray-300'}`}></div>
+                                        <div className="flex-1 h-px bg-[#303030]"></div>
                                     </div>
                                 );
                             }
 
                             const isMe = msg.senderId === user._id || msg.senderId === 'current';
-                            const isTeacher = msg.role === 'Teacher';
+                            const isTeacher = msg.role === 'Teacher' || msg.role === 'teacher';
 
                             return (
-                                <div key={msg.id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                    <div className={`max-w-[85%] ${isMe ? 'items-end' : 'items-start'} flex flex-col`}>
-                                        {/* Message Header */}
-                                        <div className={`flex items-center gap-2 mb-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                                            <span className={`text-xs font-semibold ${isTeacher
-                                                ? 'text-violet-600 dark:text-violet-400'
-                                                : isDark ? 'text-gray-300' : 'text-gray-700'
+                                <div key={msg.id || idx} className={`group p-1.5 rounded hover:bg-[#282828] transition flex items-start gap-2 ${msg.isPinned ? 'bg-[#263850]/50' : ''}`}>
+                                    {/* Avatar */}
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-medium flex-shrink-0 ${isTeacher ? 'bg-red-600 text-white' :
+                                            isMe ? 'bg-purple-600 text-white' : 'bg-[#3ea6ff] text-black'
+                                        }`}>
+                                        {isMe ? 'Y' : (msg.senderName ? msg.senderName.charAt(0) : 'U')}
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                            <span className={`text-[11px] font-medium ${isTeacher ? 'text-red-400' :
+                                                    isMe ? 'text-purple-400' : 'text-[#a2a2a2]'
                                                 }`}>
                                                 {isMe ? 'You' : (msg.senderName || 'User')}
                                             </span>
                                             {isTeacher && (
-                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-500/20 text-violet-700 dark:text-violet-300 uppercase tracking-wider">
-                                                    Teacher
+                                                <span className="text-[9px] px-1 py-0.5 rounded bg-red-600/20 text-red-400 font-bold leading-none">
+                                                    MOD
                                                 </span>
                                             )}
-                                            <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                                            <span className="text-[10px] text-gray-600">
                                                 {msg.ts && formatTime(msg.ts)}
                                             </span>
                                         </div>
-
-                                        {/* Message Bubble */}
-                                        <div
-                                            className={`px-4 py-2.5 rounded-2xl text-sm break-words ${isMe
-                                                ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-tr-sm'
-                                                : isTeacher
-                                                    ? isDark
-                                                        ? 'bg-violet-900/30 text-violet-200 border border-violet-700 rounded-tl-sm'
-                                                        : 'bg-violet-50 text-violet-900 border border-violet-200 rounded-tl-sm'
-                                                    : isDark
-                                                        ? 'bg-gray-700 text-gray-200 rounded-tl-sm'
-                                                        : 'bg-gray-100 text-gray-800 rounded-tl-sm'
-                                                }`}
-                                        >
+                                        <p className="text-[13px] leading-tight text-gray-300 break-words mt-0.5">
                                             {msg.text || msg.message}
-                                        </div>
-
-                                        {/* Read Receipt (for own messages) */}
-                                        {isMe && (
-                                            <div className="flex items-center gap-1 mt-1">
-                                                <CheckCheck className="w-3 h-3 text-violet-600 dark:text-violet-400" />
-                                                <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                    Delivered
-                                                </span>
-                                            </div>
-                                        )}
+                                        </p>
                                     </div>
                                 </div>
                             );
@@ -316,32 +349,20 @@ export default function ChatPanel({ liveClassId }) {
             </div>
 
             {/* Input Area */}
-            <div className={`px-6 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+            <div className="px-3 py-3 border-t border-[#303030] bg-[#212121]">
                 {/* Emoji Picker */}
                 {showEmojiPicker && (
-                    <div className={`mb-3 p-3 rounded-xl border transition-all ${isDark ? 'bg-gray-700 border-gray-600' : 'bg-gray-50 border-gray-200'
-                        }`}>
-                        <div className="flex items-center justify-between mb-2">
-                            <span className={`text-xs font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                Quick Reactions
-                            </span>
-                            <button
-                                onClick={() => setShowEmojiPicker(false)}
-                                className={`p-1 rounded transition-colors ${isDark ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
-                                    }`}
-                            >
-                                <X className="w-3.5 h-3.5" />
-                            </button>
+                    <div className="mb-2 p-2 rounded bg-[#303030] border border-gray-700">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs text-gray-400">Reactions</span>
+                            <button onClick={() => setShowEmojiPicker(false)} className="text-gray-400 hover:text-white"><X className="w-3 h-3" /></button>
                         </div>
-                        <div className="grid grid-cols-6 gap-2">
+                        <div className="grid grid-cols-6 gap-1">
                             {emojis.map((emoji, idx) => (
                                 <button
                                     key={idx}
-                                    onClick={() => {
-                                        setNewMessage(prev => prev + emoji);
-                                    }}
-                                    className={`text-2xl p-2 rounded-lg transition-all hover:scale-125 ${isDark ? 'hover:bg-gray-600' : 'hover:bg-gray-200'
-                                        }`}
+                                    onClick={() => setNewMessage(prev => prev + emoji)}
+                                    className="text-lg p-1 hover:bg-[#404040] rounded text-center transition"
                                 >
                                     {emoji}
                                 </button>
@@ -350,67 +371,41 @@ export default function ChatPanel({ liveClassId }) {
                     </div>
                 )}
 
-                {/* Message Input */}
-                <div className="space-y-2">
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                            disabled={!connected || isMuted}
-                            className={`p-2.5 rounded-lg transition-all ${showEmojiPicker
-                                ? 'bg-violet-600 text-white'
-                                : isDark
-                                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50'
-                                }`}
-                            title="Emojis"
-                        >
-                            <Smile className="w-5 h-5" />
-                        </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        disabled={!connected || isMuted || chatPaused}
+                        className="p-2 rounded text-gray-400 hover:text-white transition disabled:opacity-50"
+                    >
+                        <Smile className="w-5 h-5" />
+                    </button>
 
-                        <input
-                            type="text"
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            onKeyPress={handleKeyPress}
-                            placeholder={
-                                !connected
-                                    ? 'Connecting...'
-                                    : isMuted
-                                        ? 'You have been muted'
-                                        : 'Type a message...'
-                            }
-                            disabled={!connected || isMuted}
-                            className={`flex-1 px-4 py-2.5 rounded-xl border outline-none transition-all text-sm ${isDark
-                                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:ring-2 focus:ring-violet-500'
-                                : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-violet-500'
-                                } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        />
+                    <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        placeholder={
+                            !connected ? 'Connecting...' :
+                                chatPaused ? 'Chat is paused' :
+                                    isMuted ? 'You are muted' :
+                                        'Chat...'
+                        }
+                        disabled={!connected || isMuted || chatPaused}
+                        className="flex-1 px-3 py-2 rounded-full text-sm outline-none bg-[#0f0f0f] border border-[#303030] text-white placeholder-gray-600 focus:border-[#3ea6ff] transition disabled:opacity-50"
+                        maxLength={200}
+                    />
 
-                        <button
-                            onClick={handleSendMessage}
-                            disabled={!newMessage.trim() || !connected || isMuted}
-                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-medium shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all flex items-center gap-2"
-                        >
-                            <Send className="w-4 h-4" />
-                            <span className="hidden sm:inline">Send</span>
-                        </button>
-                    </div>
-
-                    {/* Helper Text */}
-                    {!connected && (
-                        <p className={`text-xs flex items-center gap-1.5 ${isDark ? 'text-orange-400' : 'text-orange-600'
-                            }`}>
-                            <Clock className="w-3 h-3" />
-                            Reconnecting to chat...
-                        </p>
-                    )}
-                    {isMuted && (
-                        <p className={`text-xs flex items-center gap-1.5 ${isDark ? 'text-red-400' : 'text-red-600'
-                            }`}>
-                            <VolumeX className="w-3 h-3" />
-                            You are currently muted and cannot send messages
-                        </p>
-                    )}
+                    <button
+                        onClick={handleSendMessage}
+                        disabled={!newMessage.trim() || !connected || isMuted || chatPaused}
+                        className="p-2 rounded-full bg-[#303030] text-gray-400 hover:text-[#3ea6ff] hover:bg-[#263850] transition disabled:opacity-50"
+                    >
+                        <Send className="w-4 h-4" />
+                    </button>
+                </div>
+                <div className="text-[10px] text-gray-600 text-right mt-1 px-1">
+                    {newMessage.length}/200
                 </div>
             </div>
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import {
     Video,
     BookOpen,
@@ -39,6 +40,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import ChatPanel from '../../components/teacher/ChatPanel';
+import CommentSection from '../../components/student/CommentSection';
 import CustomYouTubePlayer from '../../components/shared/CustomYouTubePlayer';
 
 export default function TeacherClassControl() {
@@ -50,6 +52,7 @@ export default function TeacherClassControl() {
     const [loading, setLoading] = useState(true);
     const [classData, setClassData] = useState(null);
     const [activeTab, setActiveTab] = useState('stream');
+    const [viewerCount, setViewerCount] = useState(0);
 
     // Stream Setup State
     const [streamKey, setStreamKey] = useState('');
@@ -91,6 +94,32 @@ export default function TeacherClassControl() {
             loadNotes();
         }
     }, [activeTab, classData]);
+
+    // Socket connection for real-time viewer count and status
+    useEffect(() => {
+        if (!classData?._id) return;
+
+        const socket = io('http://localhost:5000/live-classes', {
+            auth: { token: localStorage.getItem('accessToken') },
+            transports: ['websocket']
+        });
+
+        socket.on('connect_error', (err) => console.error('Socket connection error:', err));
+
+        // Join room
+        socket.emit('join-room', {
+            liveClassId: classData._id,
+            batchId: typeof classData.batch === 'object' ? classData.batch._id : classData.batch
+        });
+
+        socket.on('viewer-count', ({ count }) => {
+            setViewerCount(count);
+        });
+
+        return () => {
+            socket.disconnect();
+        };
+    }, [classData?._id]);
 
     const loadClassData = async () => {
         setLoading(true);
@@ -422,7 +451,7 @@ export default function TeacherClassControl() {
                                         <span className={isDark ? 'text-gray-600' : 'text-gray-400'}>•</span>
                                         <span className={`flex items-center gap-1.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                                             <Users className="w-4 h-4" />
-                                            {classData.onlineStudents?.length || 0} students
+                                            {viewerCount} students
                                         </span>
                                     </div>
                                     <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -432,13 +461,7 @@ export default function TeacherClassControl() {
                             </div>
                         </div>
 
-                        {/* Quick Stats */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                            <StatCard label="Current viewers" value={displayAnalytics.peakViewers} isDark={isDark} />
-                            <StatCard label="Peak viewers" value={displayAnalytics.peakViewers} isDark={isDark} />
-                            <StatCard label="Chat messages" value={displayAnalytics.chatMessages} isDark={isDark} />
-                            <StatCard label="Likes" value={displayAnalytics.likes} isDark={isDark} />
-                        </div>
+
 
                         {/* Tabs Section */}
                         <div className={`rounded ${isDark ? 'bg-[#212121]' : 'bg-white border border-gray-200'}`}>
@@ -447,8 +470,8 @@ export default function TeacherClassControl() {
                                 <div className="flex px-3 overflow-x-auto">
                                     {[
                                         { id: 'stream', label: 'Stream setup', icon: Server },
-                                        { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-                                        { id: 'materials', label: 'Materials', icon: FileText }
+                                        { id: 'materials', label: 'Materials', icon: FileText },
+                                        ...(classData.status === 'Completed' ? [{ id: 'comments', label: 'Comments', icon: MessageCircle }] : [])
                                     ].map(({ id, label, icon: Icon }) => (
                                         <button
                                             key={id}
@@ -472,15 +495,19 @@ export default function TeacherClassControl() {
                             {/* Tab Content */}
                             <div className="p-6">
                                 {activeTab === 'stream' && <StreamSetupTab isDark={isDark} streamKey={streamKey} ingestionUrl={ingestionUrl} />}
-                                {activeTab === 'analytics' && <AnalyticsTab isDark={isDark} analytics={displayAnalytics} />}
                                 {activeTab === 'materials' && <MaterialsTab isDark={isDark} notes={notes} loading={loadingNotes} classData={classData} onUpdate={loadNotes} />}
+                                {activeTab === 'comments' && classData.status === 'Completed' && (
+                                    <div className="h-[600px] border border-[#303030] rounded overflow-hidden">
+                                        <CommentSection liveClassId={classData._id} />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
 
                     {/* Right Sidebar - Chat */}
                     <div className="col-span-12 lg:col-span-3">
-                        <div className="lg:sticky lg:top-20 h-[600px]lg:h-[calc(100vh-100px)] flex flex-col">
+                        <div className="lg:sticky lg:top-20 h-[600px] lg:h-[calc(100vh-100px)] flex flex-col">
                             <ChatPanel
                                 liveClassId={classData._id}
                                 batchId={classData.batch?._id}
@@ -491,16 +518,6 @@ export default function TeacherClassControl() {
                     </div>
                 </div>
             </div>
-        </div >
-    );
-}
-
-// Stat Card Component
-function StatCard({ label, value, isDark }) {
-    return (
-        <div className={`p-4 rounded ${isDark ? 'bg-[#282828]' : 'bg-gray-50'}`}>
-            <p className={`text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{label}</p>
-            <p className={`text-2xl font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{value}</p>
         </div>
     );
 }
@@ -599,43 +616,7 @@ function StreamSetupTab({ isDark, streamKey, ingestionUrl }) {
     );
 }
 
-// Analytics Tab
-function AnalyticsTab({ isDark, analytics }) {
-    return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-                <div className={`p-4 rounded ${isDark ? 'bg-[#282828]' : 'bg-gray-50'}`}>
-                    <p className={`text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Chat activity
-                    </p>
-                    <p className={`text-2xl font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                        {analytics.chatMessages}
-                    </p>
-                    <p className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
-                        Total messages
-                    </p>
-                </div>
-                <div className={`p-4 rounded ${isDark ? 'bg-[#282828]' : 'bg-gray-50'}`}>
-                    <p className={`text-xs mb-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Retention (Target)
-                    </p>
-                    <p className={`text-2xl font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                        {analytics.retention}%
-                    </p>
-                    <div className="w-full h-1.5 bg-gray-700 rounded-full mt-2">
-                        <div className="h-full bg-green-500 rounded-full" style={{ width: `${analytics.retention}%` }} />
-                    </div>
-                </div>
-            </div>
 
-            <div className={`h-64 flex items-center justify-center rounded ${isDark ? 'bg-[#282828]' : 'bg-gray-50'}`}>
-                <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                    Real-time analytics graph coming soon
-                </p>
-            </div>
-        </div>
-    );
-}
 
 // Materials Tab
 function MaterialsTab({ isDark, notes, loading, classData, onUpdate }) {

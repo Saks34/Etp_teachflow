@@ -4,18 +4,14 @@ import { io } from 'socket.io-client';
 import api from '../../services/api';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import ChatPanel from '../../components/student/ChatPanel';
-// NotesList is being replaced by inline UI but we might need logic from it if it had any specific handling? 
-// The existing NotesList just took props. We will implement the UI directly here as per request.
 import { useAuth } from '../../context/AuthContext';
 import CustomYouTubePlayer from '../../components/shared/CustomYouTubePlayer';
 import CommentSection from '../../components/student/CommentSection';
 import usePageTitle from '../../hooks/usePageTitle';
-import { useTheme } from '../../context/ThemeContext';
 import {
     Video,
     BookOpen,
     Clock,
-    User,
     Download,
     MessageCircle,
     FileText,
@@ -26,7 +22,8 @@ import {
 export default function StudentClassDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { isDark } = useTheme();
+    // Hardcoded Dark Theme for consistency
+    const isDark = true;
     const [loading, setLoading] = useState(true);
     const [classData, setClassData] = useState(null);
     const [notes, setNotes] = useState([]);
@@ -37,7 +34,6 @@ export default function StudentClassDetail() {
 
     useEffect(() => {
         loadClassData();
-        // loadNotes is dependent on class/batch, usually done after we know the batch or concurrently if we trust the user context
         loadNotes();
     }, [id]);
 
@@ -106,26 +102,23 @@ export default function StudentClassDetail() {
 
     const getStatusConfig = () => {
         if (!classData) return {};
-
-        // Mapping backend status to UI config
-        // Backend statuses: 'Live', 'Scheduled', 'Completed' (assuming caps, or standardize)
         const status = classData.status;
 
         const configs = {
             Live: {
-                badge: 'bg-red-500',
+                badge: 'bg-red-600',
                 text: 'LIVE NOW',
                 icon: Radio,
                 pulse: true
             },
             Scheduled: {
-                badge: 'bg-blue-500',
+                badge: 'bg-blue-600',
                 text: 'UPCOMING',
                 icon: Clock,
                 pulse: false
             },
             Completed: {
-                badge: 'bg-green-500',
+                badge: 'bg-green-600',
                 text: 'RECORDED',
                 icon: Video,
                 pulse: false
@@ -140,7 +133,7 @@ export default function StudentClassDetail() {
 
     if (error || !classData) {
         return (
-            <div className={`p-8 text-center rounded-xl border ${isDark ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-red-50 border-red-200 text-red-700'}`}>
+            <div className="p-8 text-center rounded-xl border bg-red-900/10 border-red-900/20 text-red-400">
                 {error || 'Class not found'}
             </div>
         );
@@ -150,12 +143,11 @@ export default function StudentClassDetail() {
     const StatusIcon = statusConfig.icon || Clock;
 
     return (
-        <div className={`min-h-screen transition-colors ${isDark ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50'
-            }`}>
+        <div className="min-h-screen bg-[#0f0f0f] text-white">
             <div className="max-w-[1920px] mx-auto">
                 {/* Hero Section: Video + Chat */}
-                <div className="flex flex-col lg:flex-row bg-black">
-                    {/* Video Player Section - Flex-1 to take available space */}
+                <div className="flex flex-col lg:flex-row bg-[#0f0f0f] border-b border-[#303030]">
+                    {/* Video Player Section */}
                     <div className="flex-1 relative group bg-black">
                         {/* Aspect Ratio Container for Video */}
                         <div className="w-full aspect-video relative">
@@ -171,13 +163,13 @@ export default function StudentClassDetail() {
 
                             {/* Status Overlay */}
                             {classData.status === 'Live' && (
-                                <div className="absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-md text-xs font-bold shadow-xl animate-pulse pointer-events-none">
+                                <div className="absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-sm text-xs font-bold shadow-xl animate-pulse pointer-events-none">
                                     <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
                                     <span>LIVE</span>
                                 </div>
                             )}
                             {classData.status === 'Completed' && (
-                                <div className="absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-md text-xs font-bold shadow-xl pointer-events-none">
+                                <div className="absolute top-4 right-4 z-20 flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-sm text-xs font-bold shadow-xl pointer-events-none">
                                     <Video className="w-3 h-3" />
                                     <span>RECORDING</span>
                                 </div>
@@ -211,8 +203,8 @@ export default function StudentClassDetail() {
                                 </div>
                             ) : (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center text-white bg-black">
-                                    <div className="p-6 rounded-full bg-gray-800 mb-4">
-                                        <Video className="w-12 h-12 text-gray-600" />
+                                    <div className="p-6 rounded-full bg-[#212121] mb-4">
+                                        <Video className="w-12 h-12 text-gray-500" />
                                     </div>
                                     <p className="text-xl font-bold text-gray-300 mb-2">
                                         {classData.status === 'Scheduled' ? 'Waiting for Stream' : 'No Stream Available'}
@@ -227,24 +219,21 @@ export default function StudentClassDetail() {
                         </div>
                     </div>
 
-                    {/* Right Column - Chat/Comments (Matches Video Height on Desktop) */}
-                    <div className={`w-full lg:w-[350px] xl:w-[400px] flex flex-col border-l z-20 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                        }`}>
-                        {/* Force height to match parent (Video) on desktop, fixed height on mobile if needed or auto */}
-                        {/* On lg, flex row means stretch, so h-auto here fills height. But inner content needs to scroll. */}
-                        <div className="h-full relative min-h-[500px] lg:min-h-0">
+                    {/* Right Column - Chat/Comments */}
+                    <div className="w-full lg:w-[350px] xl:w-[400px] flex flex-col border-l border-[#303030] bg-[#212121] z-20">
+                        <div className="h-full relative min-h-[500px] lg:min-h-0 bg-[#212121]">
                             {classData.status === 'Completed' ? (
-                                <div className="absolute inset-0 flex flex-col">
-                                    <div className={`p-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+                                <div className="absolute inset-0 flex flex-col bg-[#212121]">
+                                    <div className="p-4 border-b border-[#303030]">
                                         <div className="flex items-center gap-3">
-                                            <div className="p-2 rounded-lg bg-violet-500/20">
-                                                <MessageCircle className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                                            <div className="p-2 rounded bg-[#3ea6ff]/10">
+                                                <MessageCircle className="w-5 h-5 text-[#3ea6ff]" />
                                             </div>
                                             <div>
-                                                <h3 className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                                <h3 className="font-bold text-white">
                                                     Comments
                                                 </h3>
-                                                <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                                                <p className="text-xs text-gray-400">
                                                     Discuss this class
                                                 </p>
                                             </div>
@@ -255,7 +244,7 @@ export default function StudentClassDetail() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="absolute inset-0 flex flex-col">
+                                <div className="absolute inset-0 flex flex-col bg-[#212121]">
                                     <ChatPanel liveClassId={id} />
                                 </div>
                             )}
@@ -264,56 +253,56 @@ export default function StudentClassDetail() {
                 </div>
 
                 {/* Content Section (Below Header) */}
-                <div className="p-4 lg:p-6 space-y-6 max-w-[1600px] mx-auto">
+                <div className="p-3 lg:p-4 space-y-4 max-w-[1600px] mx-auto">
 
                     {/* Header / Info Section */}
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         {/* Title & Status */}
                         <div className="flex items-start justify-between gap-4">
                             <div className="flex-1">
-                                <h1 className={`text-xl lg:text-2xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'
-                                    }`}>
+                                <h1 className="text-xl lg:text-2xl font-medium mb-1 text-white">
                                     {classData.subject}
                                 </h1>
 
                                 <div className="flex items-center gap-4 text-sm">
                                     <div className="flex items-center gap-2">
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                                        <div className="w-8 h-8 rounded-full bg-[#3ea6ff] flex items-center justify-center text-black font-bold text-sm">
                                             {/* Initials */}
                                             {classData.teacher?.name?.split(' ').map(n => n[0]).join('').substring(0, 2) || 'T'}
                                         </div>
                                         <div>
-                                            <p className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                            <p className="font-medium text-white">
                                                 {classData.teacher?.name}
                                             </p>
-                                            <p className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+                                            <p className="text-xs text-gray-400">
                                                 {classData.batch?.name || classData.batch}
                                             </p>
                                         </div>
                                     </div>
 
-                                    <div className={`px-3 py-1 rounded-full text-xs font-bold border ${isDark ? 'border-gray-700 text-gray-300' : 'border-gray-200 text-gray-600'}`}>
+                                    <div className="px-3 py-1 rounded text-xs font-medium border border-[#303030] text-gray-400">
                                         {classData.startTime} - {classData.endTime}
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Description Expansion */}
-                        <div className={`p-4 rounded-xl ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                            <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                {classData.description || 'No description provided.'}
-                            </p>
-                        </div>
+                        {/* Description Expansion - ONLY IF EXISTS */}
+                        {classData.description && (
+                            <div className="p-3 rounded bg-[#212121] border border-[#303030]">
+                                <p className="text-sm text-gray-300">
+                                    {classData.description}
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Study Materials */}
                     {notes.length > 0 && (
-                        <div className={`rounded-2xl shadow-sm border p-6 ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                            }`}>
+                        <div className="rounded border p-6 bg-[#212121] border-[#303030]">
                             <div className="flex items-center gap-3 mb-4">
-                                <BookOpen className={`w-5 h-5 ${isDark ? 'text-blue-400' : 'text-blue-600'}`} />
-                                <h2 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                <BookOpen className="w-5 h-5 text-[#3ea6ff]" />
+                                <h2 className="text-lg font-medium text-white">
                                     Study Materials
                                 </h2>
                             </div>
@@ -322,16 +311,12 @@ export default function StudentClassDetail() {
                                 {notes.map((note) => (
                                     <div
                                         key={note._id || note.id}
-                                        className={`flex items-center justify-between p-3 rounded-lg transition-all cursor-pointer ${isDark
-                                            ? 'bg-gray-700/30 hover:bg-gray-700/50'
-                                            : 'bg-gray-50 hover:bg-gray-100'
-                                            }`}
+                                        className="flex items-center justify-between p-3 rounded transition-all cursor-pointer bg-[#282828] hover:bg-[#303030]"
                                         onClick={() => window.open(note.secureUrl || note.fileUrl, '_blank')}
                                     >
                                         <div className="flex items-center gap-3 flex-1 min-w-0">
                                             <FileText className="w-4 h-4 text-gray-500" />
-                                            <span className={`text-sm font-medium truncate ${isDark ? 'text-gray-200' : 'text-gray-700'
-                                                }`}>
+                                            <span className="text-sm font-medium truncate text-gray-200">
                                                 {note.title}
                                             </span>
                                         </div>
